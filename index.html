@@ -68,9 +68,6 @@
         <button class="header-btn" onclick="showProfileSummary()" title="View profile">
           <i class="fas fa-user-circle"></i>
         </button>
-        <button class="header-btn" onclick="toggleTopicBar()" title="Toggle topics" id="toggleTopicsBtn">
-          <i class="fas fa-th-list"></i>
-        </button>
         <button class="header-btn restart-btn" onclick="resetChat()" title="Restart chat">
           <i class="fas fa-sync-alt"></i>
         </button>
@@ -82,34 +79,17 @@
       <!-- Messages will be inserted here -->
     </div>
 
-    <!-- Topic Navigation Bar -->
-    <div class="topic-nav-bar" id="topicNavBar">
-      <div class="topic-nav-header">
-        <span class="topic-nav-title">Quick Topics</span>
-        <button class="topic-nav-toggle" onclick="toggleTopicBar()">
-          <i class="fas fa-chevron-down" id="topicToggleIcon"></i>
-        </button>
-      </div>
-      <div class="topic-buttons" id="topicButtons">
-        <!-- Topic buttons will be inserted here -->
-      </div>
-    </div>
-
-    <!-- Current Topic Content -->
-    <div class="topic-content" id="topicContent">
-      <!-- Topic-specific content will be inserted here -->
+    <!-- Action Buttons Container -->
+    <div class="action-buttons-container" id="actionButtonsContainer">
+      <!-- Action buttons will be inserted here -->
     </div>
 
     <!-- Progress Bar -->
     <div class="progress-container">
-      <div class="progress-info">
-        <div class="progress-bar">
-          <div class="progress-fill" id="progressFill"></div>
-        </div>
-        <div class="progress-stats">
-          <span id="progressText">Starting conversation...</span>
-        </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
       </div>
+      <div class="progress-text" id="progressText">Starting conversation...</div>
     </div>
   </div>
 

@@ -12,31 +12,59 @@ let userProfile = {
 // Conversation state
 let currentPhase = 'welcome';
 let soundEnabled = true;
+let conversationHistory = [];
 
 // DOM Elements
-const chatbot = document.getElementById('chatbot');
-const chatBody = document.getElementById('chatBody');
-const chatInputArea = document.getElementById('chatInputArea');
+const welcomeScreen = document.getElementById('welcomeScreen');
+const chatContainer = document.getElementById('chatContainer');
+const chatArea = document.getElementById('chatArea');
+const quickActions = document.getElementById('quickActions');
+const chatInput = document.getElementById('chatInput');
+const typingIndicator = document.getElementById('typingIndicator');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
-const typingIndicator = document.getElementById('typingIndicator');
+const statusText = document.getElementById('statusText');
+const profileModal = document.getElementById('profileModal');
 const notificationSound = document.getElementById('notificationSound');
 
-// Initialize conversation
-function initConversation() {
-    chatBody.innerHTML = '';
-    chatInputArea.innerHTML = '';
-    currentPhase = 'welcome';
-    updateProgress(0, 'Starting conversation...');
-    showWelcomePhase();
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Load previous conversation if exists
+    const savedProfile = localStorage.getItem('studyAbroadProfile');
+    if (savedProfile) {
+        userProfile = JSON.parse(savedProfile);
+    }
+    
+    // Auto-start chat for returning users
+    if (userProfile.completed) {
+        setTimeout(startChat, 500);
+    }
+});
+
+// Start chat function
+function startChat() {
+    welcomeScreen.style.display = 'none';
+    chatContainer.style.display = 'flex';
+    chatInput.focus();
+    
+    // Show welcome message if new user
+    if (!userProfile.completed) {
+        showWelcomePhase();
+    } else {
+        showTopicSelection();
+        updateStatus('Ready to help');
+    }
 }
 
 // Phase 1: Welcome
 function showWelcomePhase() {
+    updateProgress(0, 'Starting conversation...');
+    updateStatus('Getting to know you');
+    
     showTyping(() => {
         addMessage('bot', `👋 Hi! I'm your Study Abroad Assistant.\n\nI can help you understand requirements, costs, scholarships, and visa expectations — based on your profile.\n\n⏱ Takes about 2–3 minutes.`);
         
-        showButtons([
+        showQuickActions([
             { text: '🎓 Start Profile Setup', action: () => startProfileSetup(), type: 'primary' },
             { text: '👀 Just Exploring', action: () => showTopicSelection() }
         ]);
@@ -45,15 +73,16 @@ function showWelcomePhase() {
 
 function startProfileSetup() {
     updateProgress(10, 'Profile Setup - Step 1 of 6');
+    updateStatus('Question 1/6');
     showCountrySelection();
 }
 
-// Phase 2: Profile Collection
+// Profile collection functions
 function showCountrySelection() {
     showTyping(() => {
         addMessage('bot', '🌍 Which country are you planning to study in?');
         
-        showButtons([
+        showQuickActions([
             { text: '🇦🇺 Australia', action: () => saveAnswer('targetCountry', 'Australia', showLevelSelection) },
             { text: '🇨🇦 Canada', action: () => saveAnswer('targetCountry', 'Canada', showLevelSelection) },
             { text: '🇬🇧 UK', action: () => saveAnswer('targetCountry', 'UK', showLevelSelection) },
@@ -66,10 +95,11 @@ function showCountrySelection() {
 
 function showLevelSelection() {
     updateProgress(25, 'Profile Setup - Step 2 of 6');
+    updateStatus('Question 2/6');
     showTyping(() => {
         addMessage('bot', '🎓 What level are you planning to study?');
         
-        showButtons([
+        showQuickActions([
             { text: 'Diploma', action: () => saveAnswer('intendedLevel', 'Diploma', showAcademicPerformance) },
             { text: 'Bachelor\'s', action: () => saveAnswer('intendedLevel', 'Bachelor\'s', showAcademicPerformance) },
             { text: 'Master\'s', action: () => saveAnswer('intendedLevel', 'Master\'s', showAcademicPerformance) },
@@ -80,10 +110,11 @@ function showLevelSelection() {
 
 function showAcademicPerformance() {
     updateProgress(40, 'Profile Setup - Step 3 of 6');
+    updateStatus('Question 3/6');
     showTyping(() => {
         addMessage('bot', '📊 What best describes your academic result?');
         
-        showButtons([
+        showQuickActions([
             { text: 'Below Average', action: () => saveAnswer('academicPerformance', 'Below Average', showStudyGap) },
             { text: 'Average', action: () => saveAnswer('academicPerformance', 'Average', showStudyGap) },
             { text: 'Good', action: () => saveAnswer('academicPerformance', 'Good', showStudyGap) },
@@ -94,10 +125,11 @@ function showAcademicPerformance() {
 
 function showStudyGap() {
     updateProgress(55, 'Profile Setup - Step 4 of 6');
+    updateStatus('Question 4/6');
     showTyping(() => {
         addMessage('bot', '⏳ Do you have any gap after your last study?');
         
-        showButtons([
+        showQuickActions([
             { text: 'No Gap', action: () => saveAnswer('studyGap', 'No Gap', showEnglishTestStatus) },
             { text: '1 Year', action: () => saveAnswer('studyGap', '1 Year', showEnglishTestStatus) },
             { text: '2-3 Years', action: () => saveAnswer('studyGap', '2-3 Years', showEnglishTestStatus) },
@@ -108,10 +140,11 @@ function showStudyGap() {
 
 function showEnglishTestStatus() {
     updateProgress(70, 'Profile Setup - Step 5 of 6');
+    updateStatus('Question 5/6');
     showTyping(() => {
         addMessage('bot', '🗣️ What is your English test status?');
         
-        showButtons([
+        showQuickActions([
             { text: 'IELTS/PTE Completed', action: () => saveAnswer('englishTestStatus', 'Completed', showFundingPlan) },
             { text: 'Booked/Planning', action: () => saveAnswer('englishTestStatus', 'Booked/Planning', showFundingPlan) },
             { text: 'Not Started', action: () => saveAnswer('englishTestStatus', 'Not Started', showFundingPlan) }
@@ -121,10 +154,11 @@ function showEnglishTestStatus() {
 
 function showFundingPlan() {
     updateProgress(85, 'Profile Setup - Step 6 of 6');
+    updateStatus('Question 6/6');
     showTyping(() => {
         addMessage('bot', '💰 How do you plan to fund your studies?');
         
-        showButtons([
+        showQuickActions([
             { text: 'Parents/Sponsor', action: () => saveAnswer('fundingPlan', 'Parents/Sponsor', showProfileConfirmation) },
             { text: 'Education Loan', action: () => saveAnswer('fundingPlan', 'Education Loan', showProfileConfirmation) },
             { text: 'Combination', action: () => saveAnswer('fundingPlan', 'Combination', showProfileConfirmation) },
@@ -136,15 +170,15 @@ function showFundingPlan() {
 function showProfileConfirmation() {
     userProfile.completed = true;
     updateProgress(100, 'Profile Complete!');
+    updateStatus('Ready to help');
+    
+    // Save profile to localStorage
+    localStorage.setItem('studyAbroadProfile', JSON.stringify(userProfile));
     
     showTyping(() => {
-        addMessage('bot', `✅ Thanks! I've saved your profile:\n
-• Country: ${userProfile.targetCountry}
-• Level: ${userProfile.intendedLevel}
-• Academic: ${userProfile.academicPerformance}
-• Gap: ${userProfile.studyGap}
-• English: ${userProfile.englishTestStatus}
-• Funding: ${userProfile.fundingPlan}\n\nNow choose what you'd like to know.`);
+        addMessage('bot', `✅ Profile saved successfully!\n\nI now understand:\n• Country: ${userProfile.targetCountry}\n• Level: ${userProfile.intendedLevel}\n• Academic: ${userProfile.academicPerformance}\n\nChoose what you'd like to know:`);
+        
+        updateProfileDisplay();
         
         setTimeout(() => {
             showTopicSelection();
@@ -152,15 +186,15 @@ function showProfileConfirmation() {
     });
 }
 
-// Phase 3: Topic Selection
+// Topic Selection
 function showTopicSelection() {
     currentPhase = 'topicSelection';
-    updateProgress(100, 'Ready to help! Choose a topic:');
+    updateStatus('Choose a topic');
     
     showTyping(() => {
         addMessage('bot', 'What would you like to understand better?');
         
-        showButtons([
+        showQuickActions([
             { text: '💰 Financial Requirements', action: () => showFinancialRequirements(), type: 'primary' },
             { text: '🎓 Scholarships', action: () => showScholarships() },
             { text: '📄 Visa Expectations', action: () => showVisaExpectations() },
@@ -171,177 +205,175 @@ function showTopicSelection() {
     });
 }
 
-// Phase 4: Topic-wise Responses
+// Topic responses (simplified versions)
 function showFinancialRequirements() {
+    updateStatus('Financial Guidance');
     showTyping(() => {
-        let message = `For your chosen country (${userProfile.targetCountry}) and study level (${userProfile.intendedLevel}), visa officers expect clear evidence that tuition and living costs can be covered for the duration of your studies.`;
+        let message = `For ${userProfile.targetCountry} (${userProfile.intendedLevel}), you'll need to show funds for:\n\n`;
+        message += `• Tuition: ${getTuitionEstimate()}\n`;
+        message += `• Living: ${getLivingEstimate()}\n`;
+        message += `• Total 1st year: ${getTotalEstimate()}\n\n`;
         
         if (userProfile.fundingPlan === 'Education Loan') {
-            message += `\n\nSince you are planning to use an education loan, it's important that the funding source and repayment ability are clearly explained.`;
-        } else if (userProfile.fundingPlan === 'Parents/Sponsor') {
-            message += `\n\nIf parents are involved as sponsors, the financial relationship and income stability should also be consistent with your study plan.`;
-        } else if (userProfile.fundingPlan === 'Combination') {
-            message += `\n\nWith a combination funding approach, ensure each source is properly documented and the total covers all expenses.`;
+            message += `💡 With an education loan, ensure documentation clearly shows loan approval and disbursement timeline.`;
         }
-        
-        message += `\n\n💡 Tip: Most countries require proof of funds for 1 year of tuition + living expenses.`;
         
         addMessage('bot', message);
         
-        showButtons([
+        showQuickActions([
             { text: '🎓 Scholarships', action: () => showScholarships() },
-            { text: '📄 Visa Expectations', action: () => showVisaExpectations() },
-            { text: '🔙 Back to Menu', action: () => showTopicSelection(), type: 'secondary' }
+            { text: '📄 Visa Help', action: () => showVisaExpectations() },
+            { text: '🔙 Main Menu', action: () => showTopicSelection() }
         ]);
     });
 }
 
 function showScholarships() {
+    updateStatus('Scholarship Info');
     showTyping(() => {
-        let message = `Scholarship opportunities depend mainly on academic performance, course level, and institution.\n\n`;
+        let message = `Scholarship opportunities for ${userProfile.intendedLevel}:\n\n`;
         
-        if (userProfile.academicPerformance === 'Strong' || userProfile.academicPerformance === 'Good') {
-            message += `With your ${userProfile.academicPerformance.toLowerCase()} academic background, you may be eligible for merit-based scholarships offered directly by universities.`;
+        if (userProfile.academicPerformance === 'Strong') {
+            message += `🏆 Excellent! With strong academics, you're competitive for:\n`;
+            message += `• University merit scholarships\n`;
+            message += `• Country-specific scholarships\n`;
+            message += `• Research grants (if applicable)\n\n`;
         } else {
-            message += `While scholarships are competitive, there are still opportunities available. Focus on universities that offer automatic tuition reductions for international students.`;
+            message += `📚 You can still find:\n`;
+            message += `• Partial tuition waivers\n`;
+            message += `• Early bird discounts\n`;
+            message += `• Country/institution specific offers\n\n`;
         }
         
-        if (userProfile.intendedLevel === 'Master\'s' || userProfile.intendedLevel === 'PhD') {
-            message += `\n\nAt the ${userProfile.intendedLevel} level, research scholarships and teaching assistantships are common.`;
-        }
+        message += `Apply 6-9 months before intake for best chances.`;
         
         addMessage('bot', message);
         
-        showButtons([
-            { text: '💰 Financial Requirements', action: () => showFinancialRequirements() },
-            { text: '📅 Intake Timelines', action: () => showIntakeTimelines() },
-            { text: '🤝 Talk to Counselor', action: () => showCounselorConnection() },
-            { text: '🔙 Back to Menu', action: () => showTopicSelection(), type: 'secondary' }
+        showQuickActions([
+            { text: '💰 Finances', action: () => showFinancialRequirements() },
+            { text: '📅 Timeline', action: () => showIntakeTimelines() },
+            { text: '🔙 Main Menu', action: () => showTopicSelection() }
         ]);
     });
 }
 
 function showVisaExpectations() {
+    updateStatus('Visa Guidance');
     showTyping(() => {
-        let message = `For ${userProfile.targetCountry}, visa officers closely assess:\n\n`;
-        message += `1. **Genuine Student Test**: Is your study plan realistic?\n`;
-        message += `2. **Financial Capacity**: Can you afford the studies?\n`;
-        message += `3. **English Proficiency**: Can you succeed academically?\n\n`;
+        let message = `Visa requirements for ${userProfile.targetCountry}:\n\n`;
+        message += `📋 Documents needed:\n`;
+        message += `• Proof of admission\n`;
+        message += `• Financial evidence\n`;
+        message += `• English test results\n`;
+        message += `• Genuine student statement\n\n`;
         
         if (userProfile.studyGap !== 'No Gap') {
-            message += `📝 Since you have a ${userProfile.studyGap.toLowerCase()} study gap, clearly explain how your past activities connect to your future studies.`;
+            message += `📝 Important: Clearly explain your ${userProfile.studyGap.toLowerCase()} gap in your application.`;
         }
-        
-        message += `\n\n✅ Your academic background, financial planning, and post-study goals must be consistent and logical.`;
         
         addMessage('bot', message);
         
-        showButtons([
-            { text: '💰 Financial Requirements', action: () => showFinancialRequirements() },
-            { text: '🗣️ English Guidance', action: () => showEnglishGuidance() },
-            { text: '🤝 Talk to Counselor', action: () => showCounselorConnection() },
-            { text: '🔙 Back to Menu', action: () => showTopicSelection(), type: 'secondary' }
+        showQuickActions([
+            { text: '🗣️ English Help', action: () => showEnglishGuidance() },
+            { text: '🤝 Counselor', action: () => showCounselorConnection() },
+            { text: '🔙 Main Menu', action: () => showTopicSelection() }
         ]);
     });
 }
 
 function showEnglishGuidance() {
+    updateStatus('English Test Help');
     showTyping(() => {
         let message = '';
         
         if (userProfile.englishTestStatus === 'Completed') {
-            message += `Great! You've completed your English test. Make sure your scores meet the requirements for your target universities.\n\n`;
+            message += `✅ Great! Make sure scores meet university requirements.\n\n`;
         } else if (userProfile.englishTestStatus === 'Booked/Planning') {
-            message += `Good progress! Align your test timeline with your intended intake. Most universities need test results before making offers.\n\n`;
+            message += `📅 Plan your test 2-3 months before application deadlines.\n\n`;
         } else {
-            message += `Since your English test is still pending, it's important to:\n1. Book your test ASAP\n2. Allow 2-4 weeks for results\n3. Factor this into your application timeline\n\n`;
+            message += `⏰ Start test prep now! Most students need 2-4 months.\n\n`;
         }
         
-        message += `📊 Score requirements vary:\n`;
-        message += `• Diploma/Bachelor's: IELTS 6.0-6.5 / PTE 50-58\n`;
-        message += `• Master's/PhD: IELTS 6.5-7.0 / PTE 58-65\n\n`;
-        message += `🎯 Tip: Aim for higher scores for scholarship eligibility!`;
+        message += `🎯 Target scores:\n`;
+        message += `• Diploma/Bachelor's: IELTS 6.0-6.5\n`;
+        message += `• Master's/PhD: IELTS 6.5-7.0+\n\n`;
+        message += `Book through official centers only.`;
         
         addMessage('bot', message);
         
-        showButtons([
-            { text: '📅 Intake Timelines', action: () => showIntakeTimelines() },
+        showQuickActions([
+            { text: '📅 Timeline', action: () => showIntakeTimelines() },
             { text: '🎓 Scholarships', action: () => showScholarships() },
-            { text: '🔙 Back to Menu', action: () => showTopicSelection(), type: 'secondary' }
+            { text: '🔙 Main Menu', action: () => showTopicSelection() }
         ]);
     });
 }
 
 function showIntakeTimelines() {
+    updateStatus('Timeline Planning');
     showTyping(() => {
-        const intakes = {
-            'Australia': ['February', 'July', 'November'],
-            'Canada': ['January', 'May', 'September'],
-            'UK': ['January', 'September'],
-            'USA': ['January', 'August'],
-            'New Zealand': ['February', 'July'],
-            'Not Sure': ['Varies by country']
+        const timelines = {
+            'Australia': 'Feb, Jul, Nov',
+            'Canada': 'Jan, May, Sep',
+            'UK': 'Jan, Sep',
+            'USA': 'Jan, Aug',
+            'New Zealand': 'Feb, Jul'
         };
         
-        const countryIntakes = intakes[userProfile.targetCountry] || ['Varies'];
+        const intake = timelines[userProfile.targetCountry] || 'Varies';
         
-        let message = `📅 Key intake periods for ${userProfile.targetCountry}:\n\n`;
-        message += `• Main intakes: ${countryIntakes.join(', ')}\n\n`;
-        message += `⏰ Recommended timeline:\n`;
-        message += `1. 12-18 months before: Research & shortlist\n`;
-        message += `2. 9-12 months before: Take English test\n`;
-        message += `3. 6-9 months before: Submit applications\n`;
-        message += `4. 3-6 months before: Visa application\n`;
-        message += `5. 1-2 months before: Travel preparation\n\n`;
+        let message = `📅 ${userProfile.targetCountry} Intakes: ${intake}\n\n`;
+        message += `⏰ Recommended schedule:\n`;
+        message += `Now → Research & shortlist\n`;
+        message += `+1 month → English test prep\n`;
+        message += `+3 months → Applications\n`;
+        message += `+6 months → Visa process\n`;
+        message += `+8 months → Travel prep\n\n`;
         
         if (userProfile.englishTestStatus === 'Not Started') {
-            message += `⚠️ Since you haven't started English test prep, consider the next available intake after allowing 3-4 months for test preparation and results.`;
+            message += `⚠️ Start English prep immediately!`;
         }
         
         addMessage('bot', message);
         
-        showButtons([
-            { text: '🤝 Talk to Counselor', action: () => showCounselorConnection() },
-            { text: '🔙 Back to Menu', action: () => showTopicSelection(), type: 'secondary' }
+        showQuickActions([
+            { text: '🤝 Counselor', action: () => showCounselorConnection() },
+            { text: '🔙 Main Menu', action: () => showTopicSelection() }
         ]);
     });
 }
 
-// Phase 5: Counselor Connection
 function showCounselorConnection() {
+    updateStatus('Counselor Connect');
     showTyping(() => {
-        addMessage('bot', `👨‍💼 **Free Counselor Connection Available!**\n\nA specialized counselor can now:\n\n✅ Review your complete profile\n✅ Suggest university shortlists\n✅ Guide you step-by-step\n✅ Help with applications\n\nAll guidance is free and personalized.`);
+        addMessage('bot', `👨‍💼 **Free Expert Consultation Available!**\n\nA study abroad counselor can:\n\n• Review your complete profile\n• Suggest best-fit universities\n• Guide application process\n• Help with visa documentation\n\nAll guidance is free!`);
         
-        showButtons([
-            { text: '📲 WhatsApp Consultation', action: () => connectViaWhatsApp(), type: 'primary' },
-            { text: '📅 Book Appointment', action: () => bookAppointment() },
-            { text: '🔙 Back to Menu', action: () => showTopicSelection(), type: 'secondary' }
+        showQuickActions([
+            { text: '📲 WhatsApp Now', action: () => connectViaWhatsApp(), type: 'primary' },
+            { text: '📅 Schedule Call', action: () => scheduleCall() },
+            { text: '🔙 Main Menu', action: () => showTopicSelection() }
         ]);
     });
 }
 
 function connectViaWhatsApp() {
-    const phone = '+1234567890'; // Replace with actual number
-    const message = `Hi! I need study abroad consultation. My profile:\nCountry: ${userProfile.targetCountry}\nLevel: ${userProfile.intendedLevel}\nAcademic: ${userProfile.academicPerformance}`;
+    const phone = '+1234567890';
+    const message = `Hi! I need study abroad help. My profile: ${userProfile.targetCountry}, ${userProfile.intendedLevel}, ${userProfile.academicPerformance}`;
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
     
     addMessage('user', 'Requested WhatsApp consultation');
     showTyping(() => {
-        addMessage('bot', 'Great! A counselor will contact you shortly on WhatsApp. Is there anything else I can help with?');
+        addMessage('bot', '✅ Counselor notified! They\'ll contact you shortly. Anything else?');
         setTimeout(showTopicSelection, 1500);
     });
 }
 
-function bookAppointment() {
-    addMessage('user', 'Requested appointment booking');
+function scheduleCall() {
+    addMessage('user', 'Requested callback');
     showTyping(() => {
-        addMessage('bot', 'Our booking system will open in a new window. You can choose a convenient time slot.');
-        // In real implementation, open booking calendar
-        setTimeout(() => {
-            alert('Booking system would open here in production');
-            showTopicSelection();
-        }, 1000);
+        addMessage('bot', '📞 A counselor will call you within 24 hours. Need immediate help? Try WhatsApp.');
+        setTimeout(showTopicSelection, 1500);
     });
 }
 
@@ -349,17 +381,12 @@ function bookAppointment() {
 function saveAnswer(field, value, nextFunction) {
     userProfile[field] = value;
     addMessage('user', value);
-    
-    if (soundEnabled) {
-        notificationSound.currentTime = 0;
-        notificationSound.play().catch(e => console.log('Sound play failed:', e));
-    }
-    
+    playSound();
     setTimeout(nextFunction, 500);
 }
 
-function showTyping(callback, duration = 800) {
-    typingIndicator.style.display = 'inline';
+function showTyping(callback, duration = 1000) {
+    typingIndicator.style.display = 'flex';
     
     setTimeout(() => {
         typingIndicator.style.display = 'none';
@@ -372,26 +399,37 @@ function addMessage(sender, text) {
     messageDiv.className = `message ${sender}-message`;
     
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    messageDiv.innerHTML = `${text}<span class="message-time">${time}</span>`;
     
-    chatBody.appendChild(messageDiv);
-    chatBody.scrollTop = chatBody.scrollHeight;
+    messageDiv.innerHTML = `
+        <div class="message-content">${formatMessage(text)}</div>
+        <div class="message-time">${time}</div>
+    `;
+    
+    chatArea.appendChild(messageDiv);
+    chatArea.scrollTop = chatArea.scrollHeight;
+    
+    // Save to history
+    conversationHistory.push({
+        sender,
+        text,
+        time: new Date().toISOString()
+    });
 }
 
-function showButtons(buttons) {
-    chatInputArea.innerHTML = '';
-    const container = document.createElement('div');
-    container.className = 'buttons-container';
-    
+function formatMessage(text) {
+    // Convert line breaks to <br>
+    return text.replace(/\n/g, '<br>');
+}
+
+function showQuickActions(buttons) {
+    quickActions.innerHTML = '';
     buttons.forEach(btn => {
         const button = document.createElement('button');
-        button.className = `option-btn ${btn.type || ''}`;
+        button.className = `action-btn ${btn.type || ''}`;
         button.innerHTML = btn.text;
         button.onclick = btn.action;
-        container.appendChild(button);
+        quickActions.appendChild(button);
     });
-    
-    chatInputArea.appendChild(container);
 }
 
 function updateProgress(percent, text) {
@@ -399,18 +437,80 @@ function updateProgress(percent, text) {
     progressText.textContent = text;
 }
 
-// Chat Controls
-function openChat() {
-    chatbot.style.display = 'flex';
-    if (!userProfile.completed) {
-        initConversation();
-    } else {
-        showTopicSelection();
+function updateStatus(text) {
+    statusText.textContent = text;
+}
+
+function playSound() {
+    if (soundEnabled) {
+        notificationSound.currentTime = 0;
+        notificationSound.play().catch(e => console.log('Sound error:', e));
     }
 }
 
-function closeChat() {
-    chatbot.style.display = 'none';
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    const icon = document.getElementById('soundIcon');
+    icon.className = soundEnabled ? 'fas fa-volume-up' : 'fas fa-volume-mute';
+}
+
+// Input handling
+function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    
+    addMessage('user', text);
+    chatInput.value = '';
+    
+    // Handle free text input
+    if (currentPhase === 'topicSelection') {
+        showTyping(() => {
+            addMessage('bot', 'I understand! Here are the most relevant options for you:');
+            setTimeout(showTopicSelection, 500);
+        });
+    }
+}
+
+function handleKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendMessage();
+    } else if (event.key === '/') {
+        event.preventDefault();
+        showMenu();
+    }
+}
+
+function showMenu() {
+    addMessage('user', 'Show menu');
+    showTyping(() => {
+        addMessage('bot', 'Here are all available options:');
+        showTopicSelection();
+    });
+}
+
+// Profile modal functions
+function showProfileSummary() {
+    updateProfileDisplay();
+    profileModal.style.display = 'flex';
+}
+
+function closeModal() {
+    profileModal.style.display = 'none';
+}
+
+function updateProfileDisplay() {
+    document.getElementById('profileCountry').querySelector('.value').textContent = userProfile.targetCountry || 'Not selected';
+    document.getElementById('profileLevel').querySelector('.value').textContent = userProfile.intendedLevel || 'Not selected';
+    document.getElementById('profileAcademic').querySelector('.value').textContent = userProfile.academicPerformance || 'Not selected';
+    document.getElementById('profileGap').querySelector('.value').textContent = userProfile.studyGap || 'Not selected';
+    document.getElementById('profileEnglish').querySelector('.value').textContent = userProfile.englishTestStatus || 'Not selected';
+    document.getElementById('profileFunding').querySelector('.value').textContent = userProfile.fundingPlan || 'Not selected';
+}
+
+function editProfile() {
+    closeModal();
+    userProfile.completed = false;
+    startProfileSetup();
 }
 
 function resetChat() {
@@ -423,30 +523,43 @@ function resetChat() {
         fundingPlan: '',
         completed: false
     };
-    initConversation();
+    localStorage.removeItem('studyAbroadProfile');
+    chatArea.innerHTML = '';
+    quickActions.innerHTML = '';
+    showWelcomePhase();
 }
 
-function toggleSound() {
-    soundEnabled = !soundEnabled;
-    const icon = document.getElementById('soundIcon');
-    icon.className = soundEnabled ? 'fas fa-volume-up' : 'fas fa-volume-mute';
+// Helper functions for estimates
+function getTuitionEstimate() {
+    const estimates = {
+        'Australia': 'AUD $20,000 - $45,000',
+        'Canada': 'CAD $15,000 - $35,000',
+        'UK': '£10,000 - £30,000',
+        'USA': '$20,000 - $50,000',
+        'New Zealand': 'NZD $20,000 - $40,000'
+    };
+    return estimates[userProfile.targetCountry] || 'Varies by institution';
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    // Add some sample messages if chat is opened
-    setTimeout(() => {
-        if (window.innerWidth > 768) {
-            openChat();
-        }
-    }, 2000);
-});
+function getLivingEstimate() {
+    const estimates = {
+        'Australia': 'AUD $20,000/year',
+        'Canada': 'CAD $15,000/year',
+        'UK': '£12,000/year',
+        'USA': '$15,000/year',
+        'New Zealand': 'NZD $15,000/year'
+    };
+    return estimates[userProfile.targetCountry] || 'Varies by city';
+}
 
-// Close chat when clicking outside (for mobile)
-document.addEventListener('click', (e) => {
-    if (!chatbot.contains(e.target) && !e.target.classList.contains('cta-button')) {
-        if (window.innerWidth <= 768) {
-            closeChat();
-        }
-    }
-});
+function getTotalEstimate() {
+    // Simple calculation for demo
+    const base = {
+        'Australia': 'AUD $40,000',
+        'Canada': 'CAD $30,000',
+        'UK': '£22,000',
+        'USA': '$35,000',
+        'New Zealand': 'NZD $35,000'
+    };
+    return base[userProfile.targetCountry] || 'Varies';
+}

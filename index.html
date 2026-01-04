@@ -1,0 +1,46 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Study Abroad Guidance</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<header class="header">
+  <h1>Study Abroad Guidance</h1>
+  <p>Personalized answers based on your profile</p>
+  <button onclick="openChat()">Check Your Options</button>
+</header>
+
+<section class="features">
+  <div class="card">💰 Financial Guidance</div>
+  <div class="card">🎓 Scholarships</div>
+  <div class="card">📄 Visa Expectations</div>
+  <div class="card">🗣️ English Test Help</div>
+  <div class="card">📅 Intake Planning</div>
+</section>
+
+<footer>
+  <p>© 2026 Study Abroad Assistant</p>
+</footer>
+
+<div id="chatbot" class="chatbot">
+  <div class="chat-header">
+    <span>Study Abroad Assistant</span>
+    <button onclick="closeChat()">✕</button>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <p class="bot">Hi! Tell me about your study plans.</p>
+  </div>
+  <div class="chat-input">
+    <input type="text" id="userInput" placeholder="Type here..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

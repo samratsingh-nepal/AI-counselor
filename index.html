@@ -13,36 +13,47 @@
 <div class="welcome-screen" id="welcomeScreen">
   <div class="welcome-content">
     <div class="welcome-icon">
-      <i class="fas fa-graduation-cap"></i>
+      <i class="fas fa-comments"></i>
     </div>
     <h1>Study Abroad Chat Assistant</h1>
-    <p class="welcome-subtitle">Get personalized guidance for your study abroad journey</p>
+    <p class="welcome-subtitle">Get personalized guidance through simple button choices</p>
+    
+    <div class="welcome-stats">
+      <div class="stat">
+        <div class="stat-number">6</div>
+        <div class="stat-label">Quick Questions</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">5</div>
+        <div class="stat-label">Expert Topics</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">2-3</div>
+        <div class="stat-label">Minutes</div>
+      </div>
+    </div>
     
     <div class="welcome-features">
       <div class="feature">
         <i class="fas fa-check-circle"></i>
-        <span>Profile-based advice</span>
+        <span>No typing required</span>
       </div>
       <div class="feature">
         <i class="fas fa-check-circle"></i>
-        <span>Financial planning</span>
+        <span>Button-only interaction</span>
       </div>
       <div class="feature">
         <i class="fas fa-check-circle"></i>
-        <span>Visa guidance</span>
-      </div>
-      <div class="feature">
-        <i class="fas fa-check-circle"></i>
-        <span>Scholarship help</span>
+        <span>Personalized responses</span>
       </div>
     </div>
     
     <button class="start-chat-btn" onclick="startChat()">
-      <i class="fas fa-comments"></i>
-      Start Chat
+      <i class="fas fa-play-circle"></i>
+      Start Guided Chat
     </button>
     
-    <p class="welcome-note">Takes 2-3 minutes. Your data is private and secure.</p>
+    <p class="welcome-note">Your answers are saved for this session only</p>
   </div>
 </div>
 
@@ -58,20 +69,20 @@
         <h3>Study Abroad Assistant</h3>
         <div class="status">
           <span class="status-dot"></span>
-          <span id="statusText">Online • Ready to help</span>
+          <span id="statusText">Online • Ready to guide you</span>
         </div>
       </div>
     </div>
     
     <div class="header-right">
       <button class="header-btn" onclick="showProfileSummary()" title="View profile">
-        <i class="fas fa-user"></i>
+        <i class="fas fa-user-circle"></i>
       </button>
       <button class="header-btn" onclick="resetChat()" title="Restart chat">
-        <i class="fas fa-redo"></i>
+        <i class="fas fa-sync-alt"></i>
       </button>
-      <button class="header-btn" onclick="toggleSound()" title="Toggle sound">
-        <i class="fas fa-volume-up" id="soundIcon"></i>
+      <button class="header-btn" onclick="showHelp()" title="Help">
+        <i class="fas fa-question-circle"></i>
       </button>
     </div>
   </div>
@@ -81,45 +92,9 @@
     <!-- Messages will be inserted here -->
   </div>
 
-  <!-- Quick Actions -->
-  <div class="quick-actions" id="quickActions">
-    <!-- Quick action buttons will appear here -->
-  </div>
-
-  <!-- Input Area -->
-  <div class="input-area">
-    <div class="typing-indicator" id="typingIndicator">
-      <div class="typing-dots">
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-      <span>Assistant is typing...</span>
-    </div>
-    
-    <div class="input-container">
-      <button class="input-btn" onclick="showMenu()">
-        <i class="fas fa-bars"></i>
-      </button>
-      
-      <div class="input-wrapper">
-        <input 
-          type="text" 
-          id="chatInput" 
-          placeholder="Type your message or choose an option below..."
-          autocomplete="off"
-          onkeypress="handleKeyPress(event)"
-        />
-        <div class="input-hints">
-          <span class="hint">Press Enter to send</span>
-          <span class="hint">Press / for menu</span>
-        </div>
-      </div>
-      
-      <button class="input-btn send-btn" onclick="sendMessage()">
-        <i class="fas fa-paper-plane"></i>
-      </button>
-    </div>
+  <!-- Action Buttons Area -->
+  <div class="action-buttons" id="actionButtons">
+    <!-- Action buttons will appear here -->
   </div>
   
   <!-- Progress Bar -->
@@ -135,38 +110,101 @@
 <div class="modal" id="profileModal">
   <div class="modal-content">
     <div class="modal-header">
-      <h3>Your Profile Summary</h3>
+      <h3><i class="fas fa-user-tag"></i> Your Profile Summary</h3>
       <button class="modal-close" onclick="closeModal()">&times;</button>
     </div>
     <div class="modal-body">
       <div class="profile-item" id="profileCountry">
-        <span class="label">Country:</span>
-        <span class="value">Not selected</span>
+        <div class="profile-icon">🌍</div>
+        <div class="profile-details">
+          <div class="label">Target Country</div>
+          <div class="value">Not selected</div>
+        </div>
       </div>
       <div class="profile-item" id="profileLevel">
-        <span class="label">Study Level:</span>
-        <span class="value">Not selected</span>
+        <div class="profile-icon">🎓</div>
+        <div class="profile-details">
+          <div class="label">Study Level</div>
+          <div class="value">Not selected</div>
+        </div>
       </div>
       <div class="profile-item" id="profileAcademic">
-        <span class="label">Academic Performance:</span>
-        <span class="value">Not selected</span>
+        <div class="profile-icon">📊</div>
+        <div class="profile-details">
+          <div class="label">Academic Performance</div>
+          <div class="value">Not selected</div>
+        </div>
       </div>
       <div class="profile-item" id="profileGap">
-        <span class="label">Study Gap:</span>
-        <span class="value">Not selected</span>
+        <div class="profile-icon">⏳</div>
+        <div class="profile-details">
+          <div class="label">Study Gap</div>
+          <div class="value">Not selected</div>
+        </div>
       </div>
       <div class="profile-item" id="profileEnglish">
-        <span class="label">English Test:</span>
-        <span class="value">Not selected</span>
+        <div class="profile-icon">🗣️</div>
+        <div class="profile-details">
+          <div class="label">English Test Status</div>
+          <div class="value">Not selected</div>
+        </div>
       </div>
       <div class="profile-item" id="profileFunding">
-        <span class="label">Funding Plan:</span>
-        <span class="value">Not selected</span>
+        <div class="profile-icon">💰</div>
+        <div class="profile-details">
+          <div class="label">Funding Plan</div>
+          <div class="value">Not selected</div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="editProfile()">
         <i class="fas fa-edit"></i> Edit Profile
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Help Modal -->
+<div class="modal" id="helpModal">
+  <div class="modal-content help-modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-question-circle"></i> How to Use</h3>
+      <button class="modal-close" onclick="closeHelp()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="help-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h4>Answer Profile Questions</h4>
+          <p>Click buttons to answer 6 quick questions about your study plans.</p>
+        </div>
+      </div>
+      <div class="help-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h4>Choose Topics</h4>
+          <p>Select what you want to learn about from the menu options.</p>
+        </div>
+      </div>
+      <div class="help-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h4>Get Personalized Advice</h4>
+          <p>Receive guidance tailored to your specific profile and situation.</p>
+        </div>
+      </div>
+      <div class="help-step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h4>Connect with Counselors</h4>
+          <p>Get free consultation with study abroad experts when needed.</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="closeHelp()">
+        Got it, let's start!
       </button>
     </div>
   </div>

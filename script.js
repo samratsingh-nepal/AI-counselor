@@ -1,4 +1,4 @@
-// Enhanced User profile storage
+// User profile storage
 let userProfile = {
     targetCountry: '',
     intendedLevel: '',
@@ -7,73 +7,26 @@ let userProfile = {
     englishTestStatus: '',
     fundingPlan: '',
     completed: false,
-    lastUpdated: null,
-    conversationId: generateConversationId()
+    lastUpdated: null
 };
 
 // Application State
-let currentPhase = 'welcome';
-let soundEnabled = true;
-let muteEnabled = false;
-let conversationHistory = [];
-let messageCount = 0;
-let sessionStartTime = null;
-let sessionTimer = null;
+let currentTopic = null;
+let isTopicBarCollapsed = false;
 
 // DOM Elements
 const welcomeScreen = document.getElementById('welcomeScreen');
 const chatContainer = document.getElementById('chatContainer');
 const chatArea = document.getElementById('chatArea');
-const actionButtons = document.getElementById('actionButtons');
+const topicNavBar = document.getElementById('topicNavBar');
+const topicButtons = document.getElementById('topicButtons');
+const topicContent = document.getElementById('topicContent');
+const topicToggleIcon = document.getElementById('topicToggleIcon');
+const toggleTopicsBtn = document.getElementById('toggleTopicsBtn');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
-const profileCount = document.getElementById('profileCount');
 const statusText = document.getElementById('statusText');
-const sessionTimerElement = document.getElementById('sessionTimer');
-const messageCountElement = document.getElementById('messageCount');
-const completionFill = document.getElementById('completionFill');
-const completionText = document.getElementById('completionText');
 const profileModal = document.getElementById('profileModal');
-const helpModal = document.getElementById('helpModal');
-const quickNavModal = document.getElementById('quickNavModal');
-const notificationSound = document.getElementById('notificationSound');
-const clickSound = document.getElementById('clickSound');
-const muteBtn = document.getElementById('muteBtn');
-
-// Utility Functions
-function generateConversationId() {
-    return 'conv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
-
-function updateCompletion() {
-    const fields = ['targetCountry', 'intendedLevel', 'academicPerformance', 'studyGap', 'englishTestStatus', 'fundingPlan'];
-    const completedFields = fields.filter(field => userProfile[field] && userProfile[field].trim() !== '').length;
-    const percentage = Math.round((completedFields / fields.length) * 100);
-    
-    completionFill.style.width = `${percentage}%`;
-    completionText.textContent = `${percentage}% Complete`;
-    profileCount.textContent = `Profile: ${completedFields}/6`;
-    
-    return percentage;
-}
-
-function updateMessageCount() {
-    messageCount++;
-    messageCountElement.textContent = `Messages: ${messageCount}`;
-}
-
-function startSessionTimer() {
-    sessionStartTime = Date.now();
-    
-    if (sessionTimer) clearInterval(sessionTimer);
-    
-    sessionTimer = setInterval(() => {
-        const elapsed = Date.now() - sessionStartTime;
-        const minutes = Math.floor(elapsed / 60000);
-        const seconds = Math.floor((elapsed % 60000) / 1000);
-        sessionTimerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }, 1000);
-}
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
@@ -82,52 +35,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedProfile) {
         try {
             userProfile = JSON.parse(savedProfile);
-            userProfile.conversationId = generateConversationId(); // New ID for new session
+            if (userProfile.completed) {
+                setTimeout(startChat, 500);
+            }
         } catch (e) {
             console.error('Error loading profile:', e);
         }
     }
-    
-    // Auto-start chat for returning users
-    if (userProfile.completed) {
-        setTimeout(() => {
-            startChat();
-            startSessionTimer();
-        }, 800);
-    }
-    
-    // Add keyboard shortcuts
-    document.addEventListener('keydown', handleKeyboardShortcuts);
 });
-
-// Keyboard Shortcuts
-function handleKeyboardShortcuts(event) {
-    // Escape key closes modals
-    if (event.key === 'Escape') {
-        closeModal();
-        closeHelp();
-        closeQuickNav();
-    }
-    
-    // Number keys for quick selection (1-9)
-    if (event.key >= '1' && event.key <= '9' && !event.ctrlKey && !event.metaKey) {
-        const index = parseInt(event.key) - 1;
-        const buttons = actionButtons.querySelectorAll('.action-btn');
-        if (buttons[index]) {
-            buttons[index].click();
-            event.preventDefault();
-        }
-    }
-    
-    // Space bar to quickly advance
-    if (event.key === ' ' && currentPhase.includes('Selection')) {
-        const primaryBtn = actionButtons.querySelector('.action-btn.primary');
-        if (primaryBtn) {
-            primaryBtn.click();
-            event.preventDefault();
-        }
-    }
-}
 
 // Start chat function
 function startChat() {
@@ -140,128 +55,117 @@ function startChat() {
         showTopicSelection();
         updateStatus('Choose a topic');
     }
-    
-    startSessionTimer();
 }
 
 // Phase 1: Welcome
 function showWelcomePhase() {
     updateProgress(0, 'Starting conversation...');
     updateStatus('Getting to know you');
-    currentPhase = 'welcome';
 
     setTimeout(() => {
-        addMessage('bot', `🎓 **Welcome to Your Study Abroad Assistant!**\n\nI'm here to guide you through everything you need to know about studying abroad.\n\n✨ **Here's what we'll do:**\n1. Answer 6 quick questions about your plans\n2. Get personalized advice based on your profile\n3. Explore topics that matter to you\n\n⏱ **Takes just 2-3 minutes**\n\nReady to begin?`);
+        addMessage('bot', `👋 **Welcome to Your Study Abroad Assistant!**\n\nI'm here to guide you through everything you need to know about studying abroad.\n\n✨ **Here's what we'll do:**\n1. Answer 6 quick questions about your plans\n2. Get personalized advice based on your profile\n3. Explore topics that matter to you\n\n⏱ **Takes just 2-3 minutes**\n\nReady to begin?`);
 
-        showActionButtons([
-            { text: '🚀 Start Profile Setup', action: () => startProfileSetup(), type: 'primary', icon: 'fas fa-rocket' },
-            { text: '🔍 Browse Topics First', action: () => showTopicSelection(), icon: 'fas fa-search' },
-            { text: '📚 View Sample Advice', action: () => showSampleAdvice(), icon: 'fas fa-eye' }
+        // Show only start button in chat area
+        chatArea.innerHTML += `
+            <div class="message bot-message">
+                <div class="message-content">
+                    <strong>Choose how to proceed:</strong>
+                </div>
+            </div>
+        `;
+        
+        showTopicButtons([
+            { text: 'Start Profile Setup', icon: 'fas fa-rocket', action: () => startProfileSetup(), primary: true }
         ]);
     }, 500);
-}
-
-function showSampleAdvice() {
-    addMessage('bot', `📋 **Sample Personalized Advice**\n\nHere's what you'll get after completing your profile:\n\n**For a Master's in Canada with Good academics:**\n• Estimated tuition: CAD $20,000-$35,000/year\n• Living costs: CAD $15,000-$20,000/year\n• Scholarship opportunities available\n• Visa processing: 8-12 weeks\n\n**Ready to get your personalized advice?**`);
-    
-    showActionButtons([
-        { text: '✅ Start My Profile', action: () => startProfileSetup(), type: 'primary', icon: 'fas fa-user-check' },
-        { text: '🔙 Back to Welcome', action: () => showWelcomePhase(), icon: 'fas fa-arrow-left' }
-    ]);
 }
 
 function startProfileSetup() {
     updateProgress(10, 'Step 1 of 6: Country Selection');
     updateStatus('Select your target country');
-    currentPhase = 'country';
     showCountrySelection();
 }
 
-// Enhanced Profile Collection Functions
+// Profile Collection Functions
 function showCountrySelection() {
-    addMessage('bot', '🌍 **First, which country are you planning to study in?**\n\n*Select the country where you plan to pursue your education. This helps tailor visa, financial, and timeline information specifically for that destination.*');
-
-    showActionButtons([
-        { text: '🇦🇺 Australia', action: () => saveAnswer('targetCountry', 'Australia', showLevelSelection), icon: 'fas fa-sun' },
-        { text: '🇨🇦 Canada', action: () => saveAnswer('targetCountry', 'Canada', showLevelSelection), icon: 'fas fa-maple-leaf' },
-        { text: '🇬🇧 United Kingdom', action: () => saveAnswer('targetCountry', 'UK', showLevelSelection), icon: 'fas fa-landmark' },
-        { text: '🇺🇸 United States', action: () => saveAnswer('targetCountry', 'USA', showLevelSelection), icon: 'fas fa-flag-usa' },
-        { text: '🇳🇿 New Zealand', action: () => saveAnswer('targetCountry', 'New Zealand', showLevelSelection), icon: 'fas fa-mountain' },
-        { text: '🤔 Not Sure Yet', action: () => saveAnswer('targetCountry', 'Not Sure', showLevelSelection), icon: 'fas fa-question' }
+    addMessage('bot', '🌍 **First, which country are you planning to study in?**');
+    
+    showTopicButtons([
+        { text: 'Australia 🇦🇺', icon: 'fas fa-flag', action: () => saveAnswer('targetCountry', 'Australia', showLevelSelection) },
+        { text: 'Canada 🇨🇦', icon: 'fas fa-flag', action: () => saveAnswer('targetCountry', 'Canada', showLevelSelection) },
+        { text: 'UK 🇬🇧', icon: 'fas fa-flag', action: () => saveAnswer('targetCountry', 'UK', showLevelSelection) },
+        { text: 'USA 🇺🇸', icon: 'fas fa-flag', action: () => saveAnswer('targetCountry', 'USA', showLevelSelection) },
+        { text: 'New Zealand 🇳🇿', icon: 'fas fa-flag', action: () => saveAnswer('targetCountry', 'New Zealand', showLevelSelection) },
+        { text: 'Not Sure 🤔', icon: 'fas fa-question', action: () => saveAnswer('targetCountry', 'Not Sure', showLevelSelection) }
     ]);
 }
 
 function showLevelSelection() {
     updateProgress(25, 'Step 2 of 6: Study Level');
     updateStatus('Select your study level');
-    currentPhase = 'level';
-
-    addMessage('bot', '🎓 **What level of study are you planning?**\n\n*This helps determine admission requirements, duration, and appropriate scholarship opportunities.*');
-
-    showActionButtons([
-        { text: 'Diploma / Certificate', action: () => saveAnswer('intendedLevel', 'Diploma', showAcademicPerformance), icon: 'fas fa-certificate' },
-        { text: 'Bachelor\'s Degree', action: () => saveAnswer('intendedLevel', 'Bachelor\'s', showAcademicPerformance), icon: 'fas fa-user-graduate' },
-        { text: 'Master\'s Degree', action: () => saveAnswer('intendedLevel', 'Master\'s', showAcademicPerformance), icon: 'fas fa-graduation-cap' },
-        { text: 'PhD / Doctorate', action: () => saveAnswer('intendedLevel', 'PhD', showAcademicPerformance), icon: 'fas fa-user-graduate' }
+    
+    addMessage('bot', '🎓 **What level of study are you planning?**');
+    
+    showTopicButtons([
+        { text: 'Diploma / Certificate', icon: 'fas fa-certificate', action: () => saveAnswer('intendedLevel', 'Diploma', showAcademicPerformance) },
+        { text: 'Bachelor\'s Degree', icon: 'fas fa-user-graduate', action: () => saveAnswer('intendedLevel', 'Bachelor\'s', showAcademicPerformance) },
+        { text: 'Master\'s Degree', icon: 'fas fa-graduation-cap', action: () => saveAnswer('intendedLevel', 'Master\'s', showAcademicPerformance) },
+        { text: 'PhD / Doctorate', icon: 'fas fa-user-graduate', action: () => saveAnswer('intendedLevel', 'PhD', showAcademicPerformance) }
     ]);
 }
 
 function showAcademicPerformance() {
     updateProgress(40, 'Step 3 of 6: Academic Performance');
     updateStatus('Describe your academic results');
-    currentPhase = 'academic';
-
-    addMessage('bot', '📊 **How would you describe your academic performance?**\n\n*This helps identify suitable universities and scholarship opportunities.*');
-
-    showActionButtons([
-        { text: 'Below Average', action: () => saveAnswer('academicPerformance', 'Below Average', showStudyGap), icon: 'fas fa-chart-line-down' },
-        { text: 'Average', action: () => saveAnswer('academicPerformance', 'Average', showStudyGap), icon: 'fas fa-chart-line' },
-        { text: 'Good', action: () => saveAnswer('academicPerformance', 'Good', showStudyGap), icon: 'fas fa-chart-line-up' },
-        { text: 'Strong / Excellent', action: () => saveAnswer('academicPerformance', 'Strong', showStudyGap), icon: 'fas fa-star' }
+    
+    addMessage('bot', '📊 **How would you describe your academic performance?**');
+    
+    showTopicButtons([
+        { text: 'Below Average', icon: 'fas fa-chart-line-down', action: () => saveAnswer('academicPerformance', 'Below Average', showStudyGap) },
+        { text: 'Average', icon: 'fas fa-chart-line', action: () => saveAnswer('academicPerformance', 'Average', showStudyGap) },
+        { text: 'Good', icon: 'fas fa-chart-line-up', action: () => saveAnswer('academicPerformance', 'Good', showStudyGap) },
+        { text: 'Strong / Excellent', icon: 'fas fa-star', action: () => saveAnswer('academicPerformance', 'Strong', showStudyGap) }
     ]);
 }
 
 function showStudyGap() {
     updateProgress(55, 'Step 4 of 6: Study Gap');
     updateStatus('Any gap after last study?');
-    currentPhase = 'gap';
-
-    addMessage('bot', '⏳ **Have you had any gap after your last study?**\n\n*This information is important for visa applications and university admissions.*');
-
-    showActionButtons([
-        { text: 'No Gap (Continued directly)', action: () => saveAnswer('studyGap', 'No Gap', showEnglishTestStatus), icon: 'fas fa-check-circle' },
-        { text: '1 Year Gap', action: () => saveAnswer('studyGap', '1 Year', showEnglishTestStatus), icon: 'fas fa-calendar' },
-        { text: '2-3 Years Gap', action: () => saveAnswer('studyGap', '2-3 Years', showEnglishTestStatus), icon: 'fas fa-calendar-alt' },
-        { text: 'More than 3 Years Gap', action: () => saveAnswer('studyGap', 'More than 3 Years', showEnglishTestStatus), icon: 'fas fa-calendar-times' }
+    
+    addMessage('bot', '⏳ **Have you had any gap after your last study?**');
+    
+    showTopicButtons([
+        { text: 'No Gap', icon: 'fas fa-check-circle', action: () => saveAnswer('studyGap', 'No Gap', showEnglishTestStatus) },
+        { text: '1 Year', icon: 'fas fa-calendar', action: () => saveAnswer('studyGap', '1 Year', showEnglishTestStatus) },
+        { text: '2-3 Years', icon: 'fas fa-calendar-alt', action: () => saveAnswer('studyGap', '2-3 Years', showEnglishTestStatus) },
+        { text: 'More than 3 Years', icon: 'fas fa-calendar-times', action: () => saveAnswer('studyGap', 'More than 3 Years', showEnglishTestStatus) }
     ]);
 }
 
 function showEnglishTestStatus() {
     updateProgress(70, 'Step 5 of 6: English Test Status');
     updateStatus('English test status');
-    currentPhase = 'english';
-
-    addMessage('bot', '🗣️ **What is your English test situation?**\n\n*English proficiency requirements vary by university and country.*');
-
-    showActionButtons([
-        { text: 'IELTS/PTE Completed', action: () => saveAnswer('englishTestStatus', 'Completed', showFundingPlan), icon: 'fas fa-check-double' },
-        { text: 'Test Booked / Planning', action: () => saveAnswer('englishTestStatus', 'Booked', showFundingPlan), icon: 'fas fa-calendar-check' },
-        { text: 'Not Started Yet', action: () => saveAnswer('englishTestStatus', 'Not Started', showFundingPlan), icon: 'fas fa-clock' }
+    
+    addMessage('bot', '🗣️ **What is your English test situation?**');
+    
+    showTopicButtons([
+        { text: 'IELTS/PTE Completed', icon: 'fas fa-check-double', action: () => saveAnswer('englishTestStatus', 'Completed', showFundingPlan) },
+        { text: 'Test Booked / Planning', icon: 'fas fa-calendar-check', action: () => saveAnswer('englishTestStatus', 'Booked', showFundingPlan) },
+        { text: 'Not Started Yet', icon: 'fas fa-clock', action: () => saveAnswer('englishTestStatus', 'Not Started', showFundingPlan) }
     ]);
 }
 
 function showFundingPlan() {
     updateProgress(85, 'Step 6 of 6: Funding Plan');
     updateStatus('How will you fund studies?');
-    currentPhase = 'funding';
-
-    addMessage('bot', '💰 **How do you plan to fund your studies?**\n\n*Financial planning is crucial for both admission and visa processes.*');
-
-    showActionButtons([
-        { text: 'Parents / Family Sponsor', action: () => saveAnswer('fundingPlan', 'Family Sponsor', showProfileConfirmation), icon: 'fas fa-users' },
-        { text: 'Education Loan', action: () => saveAnswer('fundingPlan', 'Education Loan', showProfileConfirmation), icon: 'fas fa-university' },
-        { text: 'Combination of Sources', action: () => saveAnswer('fundingPlan', 'Combination', showProfileConfirmation), icon: 'fas fa-balance-scale' },
-        { text: 'Not Sure / Exploring Options', action: () => saveAnswer('fundingPlan', 'Exploring', showProfileConfirmation), icon: 'fas fa-question-circle' }
+    
+    addMessage('bot', '💰 **How do you plan to fund your studies?**');
+    
+    showTopicButtons([
+        { text: 'Parents / Family Sponsor', icon: 'fas fa-users', action: () => saveAnswer('fundingPlan', 'Family Sponsor', showProfileConfirmation) },
+        { text: 'Education Loan', icon: 'fas fa-university', action: () => saveAnswer('fundingPlan', 'Education Loan', showProfileConfirmation) },
+        { text: 'Combination of Sources', icon: 'fas fa-balance-scale', action: () => saveAnswer('fundingPlan', 'Combination', showProfileConfirmation) },
+        { text: 'Not Sure / Exploring', icon: 'fas fa-question-circle', action: () => saveAnswer('fundingPlan', 'Exploring', showProfileConfirmation) }
     ]);
 }
 
@@ -270,527 +174,681 @@ function showProfileConfirmation() {
     userProfile.lastUpdated = new Date().toISOString();
     updateProgress(100, 'Profile Complete!');
     updateStatus('Ready to explore topics');
-    currentPhase = 'confirmation';
-
+    
     localStorage.setItem('studyAbroadProfile', JSON.stringify(userProfile));
-
-    addMessage('bot', `🎉 **Profile Successfully Saved!**\n\n✅ **Your Profile Summary:**\n• **Country:** ${userProfile.targetCountry}\n• **Study Level:** ${userProfile.intendedLevel}\n• **Academic:** ${userProfile.academicPerformance}\n• **Study Gap:** ${userProfile.studyGap}\n• **English Test:** ${userProfile.englishTestStatus}\n• **Funding:** ${userProfile.fundingPlan}\n\n✨ **With this profile, I can now provide you with personalized advice tailored specifically to your situation.**\n\nWhat would you like to explore first?`);
-
+    
+    addMessage('bot', `🎉 **Profile Successfully Saved!**\n\n✅ **Your Profile Summary:**\n• **Country:** ${userProfile.targetCountry}\n• **Study Level:** ${userProfile.intendedLevel}\n• **Academic:** ${userProfile.academicPerformance}\n• **Study Gap:** ${userProfile.studyGap}\n• **English Test:** ${userProfile.englishTestStatus}\n• **Funding:** ${userProfile.fundingPlan}\n\n✨ **With this profile, I can now provide you with personalized advice.**`);
+    
     updateProfileDisplay();
-    updateCompletion();
-
+    
     setTimeout(() => {
         showTopicSelection();
-    }, 1200);
+    }, 1500);
 }
 
-// Enhanced Topic Selection
+// Topic Selection - Show in navigation bar
 function showTopicSelection() {
     updateProgress(100, 'Ready to help!');
     updateStatus('Choose a topic');
-    currentPhase = 'topics';
-
-    addMessage('bot', '📚 **What would you like to understand better?**\n\n*Choose any topic to get personalized guidance based on your profile.*');
-
-    showActionButtons([
-        { text: '💰 Financial Requirements', action: () => showFinancialRequirements(), type: 'primary', icon: 'fas fa-money-check-alt' },
-        { text: '🎓 Scholarships & Funding', action: () => showScholarships(), icon: 'fas fa-award' },
-        { text: '📄 Visa & Documentation', action: () => showVisaExpectations(), icon: 'fas fa-file-contract' },
-        { text: '🗣️ English Test Guidance', action: () => showEnglishGuidance(), icon: 'fas fa-language' },
-        { text: '📅 Timeline Planning', action: () => showIntakeTimelines(), icon: 'fas fa-calendar-day' },
-        { text: '🤝 Talk to Counselor', action: () => showCounselorConnection(), icon: 'fas fa-headset' },
-        { text: '📊 Compare Countries', action: () => showCountryComparison(), icon: 'fas fa-globe-americas' }
+    
+    // Clear previous topic content
+    topicContent.innerHTML = '';
+    topicContent.classList.remove('active');
+    
+    // Show topic navigation bar
+    topicNavBar.classList.remove('collapsed');
+    topicToggleIcon.className = 'fas fa-chevron-down';
+    isTopicBarCollapsed = false;
+    
+    // Clear any active topic buttons
+    const allTopicBtns = document.querySelectorAll('.topic-btn');
+    allTopicBtns.forEach(btn => btn.classList.remove('active'));
+    
+    // Add message explaining the interface
+    addMessage('bot', `📚 **What would you like to understand better?**\n\n*Choose any topic from the navigation bar below to get personalized guidance.*`);
+    
+    // Show topic buttons in the navigation bar
+    showTopicNavButtons([
+        { id: 'financial', text: 'Financial Requirements', icon: '💰', action: () => showTopic('financial') },
+        { id: 'scholarships', text: 'Scholarships', icon: '🎓', action: () => showTopic('scholarships') },
+        { id: 'visa', text: 'Visa Expectations', icon: '📄', action: () => showTopic('visa') },
+        { id: 'english', text: 'English Test Help', icon: '🗣️', action: () => showTopic('english') },
+        { id: 'timeline', text: 'Timeline Planning', icon: '📅', action: () => showTopic('timeline') },
+        { id: 'counselor', text: 'Talk to Counselor', icon: '🤝', action: () => showTopic('counselor') }
     ]);
 }
 
-// Enhanced Topic Response Functions
-function showFinancialRequirements() {
-    updateStatus('Financial Guidance');
-    currentPhase = 'financial';
-
-    const country = userProfile.targetCountry || 'your chosen country';
-    const level = userProfile.intendedLevel || 'your study level';
-    const funding = userProfile.fundingPlan || 'your funding plan';
-
-    let message = `💰 **Financial Requirements for ${country}**\n\n`;
-    message += `For ${level} studies in ${country}, here's what you need to know:\n\n`;
+// Show topic content
+function showTopic(topicId) {
+    currentTopic = topicId;
     
-    // Country-specific financial estimates
-    const estimates = getFinancialEstimates(country, level);
-    message += `📈 **Estimated Costs (1st Year):**\n`;
-    message += `• Tuition Fees: ${estimates.tuition}\n`;
-    message += `• Living Expenses: ${estimates.living}\n`;
-    message += `• Health Insurance: ${estimates.insurance}\n`;
-    message += `• **Total Required: ${estimates.total}**\n\n`;
+    // Collapse topic navigation bar
+    topicNavBar.classList.add('collapsed');
+    topicToggleIcon.className = 'fas fa-chevron-up';
+    isTopicBarCollapsed = true;
     
-    // Funding-specific advice
-    message += `💡 **For your ${funding} plan:**\n`;
-    message += getFundingAdvice(funding);
+    // Update active button
+    const allTopicBtns = document.querySelectorAll('.topic-btn');
+    allTopicBtns.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.topic === topicId) {
+            btn.classList.add('active');
+        }
+    });
     
-    message += `\n⚡ **Pro Tips:**\n`;
-    message += `• Start financial documentation early\n`;
-    message += `• Keep funds in account for at least 3 months\n`;
-    message += `• Consider currency exchange rates\n`;
-
-    addMessage('bot', message);
-
-    showActionButtons([
-        { text: '🎓 Scholarship Options', action: () => showScholarships(), icon: 'fas fa-award' },
-        { text: '📄 Visa Documentation', action: () => showVisaExpectations(), icon: 'fas fa-file-alt' },
-        { text: '📅 Timeline Planning', action: () => showIntakeTimelines(), icon: 'fas fa-calendar' },
-        { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-    ]);
+    // Show topic content area
+    topicContent.classList.add('active');
+    topicContent.innerHTML = '';
+    
+    // Generate topic content
+    const topicContentHTML = generateTopicContent(topicId);
+    topicContent.innerHTML = topicContentHTML;
+    
+    // Update status
+    updateStatus(`${getTopicName(topicId)} • Viewing`);
 }
 
-function getFinancialEstimates(country, level) {
-    const estimates = {
-        'Australia': {
-            'Diploma': { tuition: 'AUD $15,000-$25,000', living: 'AUD $20,000', insurance: 'AUD $3,000', total: 'AUD $38,000-$48,000' },
-            'Bachelor\'s': { tuition: 'AUD $20,000-$35,000', living: 'AUD $22,000', insurance: 'AUD $3,500', total: 'AUD $45,500-$60,500' },
-            'Master\'s': { tuition: 'AUD $22,000-$40,000', living: 'AUD $22,000', insurance: 'AUD $3,500', total: 'AUD $47,500-$65,500' },
-            'PhD': { tuition: 'AUD $20,000-$35,000', living: 'AUD $22,000', insurance: 'AUD $3,500', total: 'AUD $45,500-$60,500' }
+function generateTopicContent(topicId) {
+    const topicData = getTopicData(topicId);
+    
+    return `
+        <div class="topic-content-header">
+            <h3><span class="topic-icon">${topicData.icon}</span> ${topicData.title}</h3>
+            <button class="topic-back-btn" onclick="backToTopics()">
+                <i class="fas fa-arrow-left"></i> Back to Topics
+            </button>
+        </div>
+        
+        <div class="topic-content-body">
+            ${topicData.content}
+            
+            <div class="topic-note">
+                <p><i class="fas fa-lightbulb"></i> <strong>Personalized Advice:</strong> This guidance is tailored based on your profile information.</p>
+            </div>
+            
+            <div class="topic-actions">
+                ${topicData.actions}
+            </div>
+        </div>
+    `;
+}
+
+function getTopicData(topicId) {
+    const topics = {
+        'financial': {
+            icon: '💰',
+            title: 'Financial Requirements',
+            content: generateFinancialContent(),
+            actions: `
+                <button class="topic-action-btn" onclick="showTopic('scholarships')">
+                    <i class="fas fa-award"></i>
+                    <span>Explore Scholarships</span>
+                </button>
+                <button class="topic-action-btn primary" onclick="showTopic('counselor')">
+                    <i class="fas fa-headset"></i>
+                    <span>Talk to Financial Advisor</span>
+                </button>
+            `
         },
-        'Canada': {
-            'Diploma': { tuition: 'CAD $12,000-$22,000', living: 'CAD $15,000', insurance: 'CAD $1,000', total: 'CAD $28,000-$38,000' },
-            'Bachelor\'s': { tuition: 'CAD $18,000-$30,000', living: 'CAD $16,000', insurance: 'CAD $1,200', total: 'CAD $35,200-$47,200' },
-            'Master\'s': { tuition: 'CAD $20,000-$35,000', living: 'CAD $16,000', insurance: 'CAD $1,200', total: 'CAD $37,200-$52,200' },
-            'PhD': { tuition: 'CAD $8,000-$20,000', living: 'CAD $16,000', insurance: 'CAD $1,200', total: 'CAD $25,200-$37,200' }
+        'scholarships': {
+            icon: '🎓',
+            title: 'Scholarship Opportunities',
+            content: generateScholarshipContent(),
+            actions: `
+                <button class="topic-action-btn" onclick="showTopic('financial')">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span>View Financial Requirements</span>
+                </button>
+                <button class="topic-action-btn primary" onclick="showTopic('counselor')">
+                    <i class="fas fa-headset"></i>
+                    <span>Get Scholarship Help</span>
+                </button>
+            `
+        },
+        'visa': {
+            icon: '📄',
+            title: 'Visa Expectations',
+            content: generateVisaContent(),
+            actions: `
+                <button class="topic-action-btn" onclick="showTopic('english')">
+                    <i class="fas fa-language"></i>
+                    <span>English Test Requirements</span>
+                </button>
+                <button class="topic-action-btn primary" onclick="showTopic('counselor')">
+                    <i class="fas fa-headset"></i>
+                    <span>Visa Consultation</span>
+                </button>
+            `
+        },
+        'english': {
+            icon: '🗣️',
+            title: 'English Test Guidance',
+            content: generateEnglishContent(),
+            actions: `
+                <button class="topic-action-btn" onclick="showTopic('timeline')">
+                    <i class="fas fa-calendar"></i>
+                    <span>Timeline Planning</span>
+                </button>
+                <button class="topic-action-btn primary" onclick="showTopic('counselor')">
+                    <i class="fas fa-headset"></i>
+                    <span>Get Test Prep Help</span>
+                </button>
+            `
+        },
+        'timeline': {
+            icon: '📅',
+            title: 'Timeline Planning',
+            content: generateTimelineContent(),
+            actions: `
+                <button class="topic-action-btn" onclick="showTopic('english')">
+                    <i class="fas fa-language"></i>
+                    <span>English Test Schedule</span>
+                </button>
+                <button class="topic-action-btn primary" onclick="showTopic('counselor')">
+                    <i class="fas fa-headset"></i>
+                    <span>Create Personalized Plan</span>
+                </button>
+            `
+        },
+        'counselor': {
+            icon: '🤝',
+            title: 'Counselor Connection',
+            content: generateCounselorContent(),
+            actions: `
+                <button class="topic-action-btn" onclick="connectViaWhatsApp()">
+                    <i class="fab fa-whatsapp"></i>
+                    <span>Connect on WhatsApp</span>
+                </button>
+                <button class="topic-action-btn primary" onclick="scheduleVideoCall()">
+                    <i class="fas fa-video"></i>
+                    <span>Schedule Video Call</span>
+                </button>
+            `
         }
     };
     
-    return estimates[country]?.[level] || estimates['Canada']['Master\'s'];
+    return topics[topicId];
+}
+
+function generateFinancialContent() {
+    const country = userProfile.targetCountry || 'your chosen country';
+    const level = userProfile.intendedLevel || 'your study level';
+    const funding = userProfile.fundingPlan || 'your funding plan';
+    
+    return `
+        <div class="topic-section">
+            <h4><i class="fas fa-money-check-alt"></i> Estimated Costs for ${country}</h4>
+            <p>For ${level} studies in ${country}, here's a breakdown of expected costs:</p>
+            
+            <ul class="topic-list">
+                <li><strong>Tuition Fees:</strong> ${getTuitionEstimate(country, level)}</li>
+                <li><strong>Living Expenses:</strong> ${getLivingEstimate(country)}</li>
+                <li><strong>Health Insurance:</strong> ${getInsuranceEstimate(country)}</li>
+                <li><strong>Miscellaneous:</strong> ${getMiscEstimate(country)}</li>
+            </ul>
+            
+            <p><strong>Total First Year Estimate:</strong> ${getTotalEstimate(country, level)}</p>
+        </div>
+        
+        <div class="topic-section">
+            <h4><i class="fas fa-hand-holding-usd"></i> Funding Requirements</h4>
+            <p>Based on your ${funding} plan:</p>
+            <p>${getFundingAdvice(funding)}</p>
+        </div>
+        
+        <div class="topic-section">
+            <h4><i class="fas fa-lightbulb"></i> Key Considerations</h4>
+            <ul class="topic-list">
+                <li>Start financial documentation 3-4 months before application</li>
+                <li>Maintain funds in account for at least 3 months</li>
+                <li>Consider currency exchange rate fluctuations</li>
+                <li>Include emergency funds (10-15% of total)</li>
+            </ul>
+        </div>
+    `;
+}
+
+function generateScholarshipContent() {
+    const academic = userProfile.academicPerformance || 'your academic level';
+    const level = userProfile.intendedLevel || 'your study level';
+    
+    return `
+        <div class="topic-section">
+            <h4><i class="fas fa-award"></i> Opportunities for ${academic} Academics</h4>
+            <p>Based on your ${academic} academic profile at ${level} level:</p>
+            
+            <ul class="topic-list">
+                ${getScholarshipOpportunities(academic, level)}
+            </ul>
+        </div>
+        
+        <div class="topic-section">
+            <h4><i class="fas fa-calendar-alt"></i> Application Timeline</h4>
+            <p>Critical deadlines for scholarship applications:</p>
+            
+            <ul class="topic-list">
+                <li><strong>6-8 months before intake:</strong> Research and identify scholarships</li>
+                <li><strong>5-7 months before:</strong> Prepare application documents</li>
+                <li><strong>4-6 months before:</strong> Submit applications</li>
+                <li><strong>3-4 months before:</strong> Follow up and prepare for interviews</li>
+                <li><strong>2-3 months before:</strong> Receive results and accept offers</li>
+            </ul>
+        </div>
+        
+        <div class="topic-section">
+            <h4><i class="fas fa-tips"></i> Application Tips</h4>
+            <ul class="topic-list">
+                <li>Apply to at least 5-7 scholarships to increase chances</li>
+                <li>Tailor each application to the specific scholarship criteria</li>
+                <li>Highlight unique achievements and experiences</li>
+                <li>Get strong letters of recommendation</li>
+                <li>Submit applications well before deadlines</li>
+            </ul>
+        </div>
+    `;
+}
+
+function generateVisaContent() {
+    const country = userProfile.targetCountry || 'selected country';
+    const gap = userProfile.studyGap || 'No Gap';
+    
+    return `
+        <div class="topic-section">
+            <h4><i class="fas fa-file-contract"></i> Visa Requirements for ${country}</h4>
+            <p>Essential documents you'll need to prepare:</p>
+            
+            <ul class="topic-list">
+                <li><strong>Valid passport</strong> (minimum 6 months validity)</li>
+                <li><strong>University offer letter</strong> (unconditional admission)</li>
+                <li><strong>Proof of financial capability</strong> (bank statements, loan sanction)</li>
+                <li><strong>English proficiency test results</strong> (IELTS/PTE/TOEFL)</li>
+                <li><strong>Academic transcripts and certificates</strong> (attested if required)</li>
+                <li><strong>Statement of Purpose (SOP)</strong> explaining study intentions</li>
+                <li><strong>Health insurance proof</strong> (as per country requirements)</li>
+                <li><strong>Police clearance certificate</strong> (background check)</li>
+                <li><strong>Visa application form</strong> with photographs</li>
+            </ul>
+        </div>
+        
+        ${gap !== 'No Gap' ? `
+        <div class="topic-section">
+            <h4><i class="fas fa-clock"></i> Important: Study Gap Explanation</h4>
+            <p>Since you have a ${gap.toLowerCase()} study gap, you need to provide a clear explanation:</p>
+            <ul class="topic-list">
+                <li>Document all activities during the gap period</li>
+                <li>Show how these activities connect to your future studies</li>
+                <li>Provide certificates for any courses/training completed</li>
+                <li>Explain career development during this period</li>
+                <li>Show consistency in your academic and career journey</li>
+            </ul>
+        </div>
+        ` : ''}
+        
+        <div class="topic-section">
+            <h4><i class="fas fa-hourglass-half"></i> Processing Timeline</h4>
+            <p><strong>${getVisaProcessingTime(country)}</strong></p>
+            <p>Recommendation: Apply 3-4 months before your course start date.</p>
+        </div>
+    `;
+}
+
+function generateEnglishContent() {
+    const status = userProfile.englishTestStatus || 'Not Started';
+    const level = userProfile.intendedLevel || 'your study level';
+    
+    return `
+        <div class="topic-section">
+            <h4><i class="fas fa-language"></i> Your Current Status: ${status}</h4>
+            <p>${getEnglishStatusMessage(status)}</p>
+            
+            <ul class="topic-list">
+                ${getEnglishActionItems(status)}
+            </ul>
+        </div>
+        
+        <div class="topic-section">
+            <h4><i class="fas fa-chart-line"></i> Score Requirements for ${level}</h4>
+            <p>Typical English test requirements:</p>
+            
+            <ul class="topic-list">
+                <li><strong>IELTS:</strong> ${getIELTSRequirement(level)}</li>
+                <li><strong>PTE:</strong> ${getPTERequirement(level)}</li>
+                <li><strong>TOEFL iBT:</strong> ${getTOEFLRequirement(level)}</li>
+                <li><strong>Duolingo:</strong> ${getDuolingoRequirement(level)} (accepted by many universities)</li>
+            </ul>
+            
+            <p><em>Note: Some universities may have higher requirements for competitive programs.</em></p>
+        </div>
+        
+        <div class="topic-section">
+            <h4><i class="fas fa-calendar-check"></i> Test Planning Timeline</h4>
+            <ul class="topic-list">
+                <li><strong>Preparation:</strong> 2-4 months (depending on current level)</li>
+                <li><strong>Test Booking:</strong> 4-6 weeks in advance (seats fill quickly)</li>
+                <li><strong>Test Results:</strong> 2-4 weeks after test date</li>
+                <li><strong>Validity:</strong> 2 years for most tests</li>
+                <li><strong>Retake Planning:</strong> Allow 1-2 months between attempts if needed</li>
+            </ul>
+        </div>
+    `;
+}
+
+function generateTimelineContent() {
+    const country = userProfile.targetCountry || 'selected country';
+    const englishStatus = userProfile.englishTestStatus || 'Not Started';
+    
+    return `
+        <div class="topic-section">
+            <h4><i class="fas fa-calendar-day"></i> Intake Timeline for ${country}</h4>
+            <p>Main intake periods:</p>
+            <p><strong>${getIntakePeriods(country)}</strong></p>
+            
+            <p>Recommended schedule for the next available intake:</p>
+            
+            <ul class="topic-list">
+                ${getTimelineSteps(englishStatus)}
+            </ul>
+        </div>
+        
+        <div class="topic-section">
+            <h4><i class="fas fa-tasks"></i> Critical Checklist</h4>
+            
+            <ul class="topic-list">
+                <li><input type="checkbox"> Research and shortlist universities (Now)</li>
+                <li><input type="checkbox"> Contact potential supervisors (if PhD/Masters research)</li>
+                <li><input type="checkbox"> Prepare for English test (${englishStatus === 'Not Started' ? 'Start now!' : 'Ongoing'})</li>
+                <li><input type="checkbox"> Take English test (Schedule based on intake)</li>
+                <li><input type="checkbox"> Request academic transcripts and recommendations</li>
+                <li><input type="checkbox"> Prepare Statement of Purpose (SOP)</li>
+                <li><input type="checkbox"> Submit university applications (4-6 months before intake)</li>
+                <li><input type="checkbox"> Apply for scholarships (parallel with applications)</li>
+                <li><input type="checkbox"> Accept offer and pay deposit (2-3 months before intake)</li>
+                <li><input type="checkbox"> Apply for student visa (3-4 months before intake)</li>
+                <li><input type="checkbox"> Arrange accommodation (2-3 months before)</li>
+                <li><input type="checkbox"> Book flights and plan arrival (1-2 months before)</li>
+            </ul>
+        </div>
+    `;
+}
+
+function generateCounselorContent() {
+    return `
+        <div class="topic-section">
+            <h4><i class="fas fa-headset"></i> Free Expert Consultation</h4>
+            <p>Our certified study abroad counselors can help you with:</p>
+            
+            <ul class="topic-list">
+                <li><strong>University Selection:</strong> Best-fit universities based on your profile</li>
+                <li><strong>Application Strategy:</strong> Maximize your admission chances</li>
+                <li><strong>Document Review:</strong> SOP, LOR, and resume feedback</li>
+                <li><strong>Visa Guidance:</strong> Complete document checklist and mock interviews</li>
+                <li><strong>Financial Planning:</strong> Scholarship and funding advice</li>
+                <li><strong>Timeline Management:</strong> Personalized schedule creation</li>
+                <li><strong>Post-Admission Support:</strong> Accommodation, travel, and settling in</li>
+            </ul>
+            
+            <p><strong>All consultations are completely free!</strong> Choose your preferred method of communication:</p>
+        </div>
+        
+        <div class="topic-section">
+            <h4><i class="fas fa-comments"></i> Why Get Professional Help?</h4>
+            <ul class="topic-list">
+                <li>✅ <strong>Save Time:</strong> Avoid common mistakes and streamline the process</li>
+                <li>✅ <strong>Increase Success:</strong> Higher admission and visa approval rates</li>
+                <li>✅ <strong>Personalized Strategy:</strong> Tailored to your specific profile</li>
+                <li>✅ <strong>Stress Reduction:</strong> Expert guidance at every step</li>
+                <li>✅ <strong>Cost-Effective:</strong> Avoid expensive application mistakes</li>
+            </ul>
+        </div>
+    `;
+}
+
+// Helper functions for content generation
+function getTuitionEstimate(country, level) {
+    const estimates = {
+        'Australia': {
+            'Diploma': 'AUD $15,000 - $25,000/year',
+            'Bachelor\'s': 'AUD $20,000 - $35,000/year',
+            'Master\'s': 'AUD $22,000 - $40,000/year',
+            'PhD': 'AUD $20,000 - $35,000/year'
+        },
+        'Canada': {
+            'Diploma': 'CAD $12,000 - $22,000/year',
+            'Bachelor\'s': 'CAD $18,000 - $30,000/year',
+            'Master\'s': 'CAD $20,000 - $35,000/year',
+            'PhD': 'CAD $8,000 - $20,000/year'
+        }
+    };
+    
+    return estimates[country]?.[level] || 'Varies by institution - check university websites';
+}
+
+function getLivingEstimate(country) {
+    const estimates = {
+        'Australia': 'AUD $20,000 - $25,000/year',
+        'Canada': 'CAD $15,000 - $20,000/year',
+        'UK': '£12,000 - £15,000/year',
+        'USA': '$15,000 - $25,000/year',
+        'New Zealand': 'NZD $15,000 - $20,000/year'
+    };
+    
+    return estimates[country] || 'Varies by city - typically $15,000-$25,000/year';
+}
+
+function getInsuranceEstimate(country) {
+    const estimates = {
+        'Australia': 'AUD $3,000/year',
+        'Canada': 'CAD $600 - $1,200/year',
+        'UK': '£470/year (IHS surcharge)',
+        'USA': '$1,500 - $2,500/year',
+        'New Zealand': 'NZD $500 - $1,000/year'
+    };
+    
+    return estimates[country] || 'Typically $1,000-$3,000/year';
+}
+
+function getMiscEstimate(country) {
+    return 'Books, supplies, transportation: $2,000 - $4,000/year';
+}
+
+function getTotalEstimate(country, level) {
+    // Simplified total calculation
+    return 'Approximately 10-15% higher than the sum of individual estimates';
 }
 
 function getFundingAdvice(funding) {
     switch(funding) {
         case 'Family Sponsor':
-            return `• Prepare sponsor's financial documents\n• Show stable income history (6-12 months)\n• Provide relationship proof documents\n`;
+            return 'You will need to provide bank statements showing sufficient funds, proof of relationship with sponsor, and evidence of stable income. Most countries require funds to be in the account for 3-6 months before application.';
         case 'Education Loan':
-            return `• Get loan sanction letter early\n• Show repayment capability\n• Understand disbursement process\n`;
+            return 'Obtain a loan sanction letter from a recognized bank. Ensure the loan covers tuition and living expenses. Some countries require proof of loan disbursement. Check if your chosen country accepts education loans for visa purposes.';
         case 'Combination':
-            return `• Document each source clearly\n• Show total meets requirements\n• Ensure consistency across documents\n`;
+            return 'Clearly document each funding source. Provide bank statements for personal funds, loan sanction letter, and sponsor documents if applicable. Ensure the total from all sources meets or exceeds the required amount.';
         default:
-            return `• Start exploring options now\n• Consider scholarships and loans\n• Plan for at least 3 months preparation\n`;
+            return 'Start exploring funding options immediately. Consider: education loans from banks, government scholarships, university scholarships, and part-time work options (check work rights in your chosen country).';
     }
 }
 
-function showScholarships() {
-    updateStatus('Scholarship Information');
-    currentPhase = 'scholarships';
-
-    const academic = userProfile.academicPerformance || 'your academic level';
-    const country = userProfile.targetCountry || 'selected country';
-
-    let message = `🎓 **Scholarship Opportunities**\n\n`;
-    message += `Based on your ${academic} academic profile for ${country}:\n\n`;
+function getScholarshipOpportunities(academic, level) {
+    let opportunities = '';
     
-    // Academic-based opportunities
     if (academic === 'Strong') {
-        message += `🏆 **You're highly competitive for:**\n`;
-        message += `• University merit scholarships (up to 100% tuition)\n`;
-        message += `• Government-funded scholarships\n`;
-        message += `• Research assistantships (for Master's/PhD)\n`;
+        opportunities = `
+            <li><strong>Merit Scholarships:</strong> Full or partial tuition waivers from universities</li>
+            <li><strong>Government Scholarships:</strong> Country-specific programs (e.g., Chevening, Fulbright)</li>
+            <li><strong>Research Scholarships:</strong> For Master's and PhD students with research proposals</li>
+            <li><strong>Teaching Assistantships:</strong> Stipend + tuition waiver for qualified students</li>
+        `;
     } else if (academic === 'Good') {
-        message += `🌟 **Good opportunities available:**\n`;
-        message += `• Partial tuition waivers (25-75%)\n`;
-        message += `• Department-specific scholarships\n`;
-        message += `• Early bird application discounts\n`;
+        opportunities = `
+            <li><strong>Partial Scholarships:</strong> 25-75% tuition reduction from universities</li>
+            <li><strong>Departmental Scholarships:</strong> Awards based on specific academic strengths</li>
+            <li><strong>Early Bird Discounts:</strong> Apply early for tuition reductions</li>
+            <li><strong>External Scholarships:</strong> Private organizations and foundations</li>
+        `;
     } else {
-        message += `📚 **Still options to explore:**\n`;
-        message += `• University bursaries and grants\n`;
-        message += `• Country-specific scholarships\n`;
-        message += `• External funding organizations\n`;
+        opportunities = `
+            <li><strong>University Bursaries:</strong> Need-based financial assistance</li>
+            <li><strong>Country Scholarships:</strong> Programs targeting specific nationalities</li>
+            <li><strong>Field-Specific Awards:</strong> Scholarships for particular study areas</li>
+            <li><strong>Minority Scholarships:</strong> Awards for underrepresented groups</li>
+        `;
     }
     
-    message += `\n📅 **Application Timeline:**\n`;
-    message += `• Research: Now - 12 months before\n`;
-    message += `• Applications: 6-9 months before intake\n`;
-    message += `• Results: 3-6 months before intake\n`;
-    
-    message += `\n💡 **Key Tips:**\n`;
-    message += `• Apply to multiple scholarships\n`;
-    message += `• Tailor each application\n`;
-    message += `• Highlight unique achievements\n`;
-
-    addMessage('bot', message);
-
-    showActionButtons([
-        { text: '💰 Financial Planning', action: () => showFinancialRequirements(), icon: 'fas fa-calculator' },
-        { text: '📅 Application Timeline', action: () => showIntakeTimelines(), icon: 'fas fa-calendar' },
-        { text: '🌍 Compare Countries', action: () => showCountryComparison(), icon: 'fas fa-globe' },
-        { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-    ]);
-}
-
-function showVisaExpectations() {
-    updateStatus('Visa Guidance');
-    currentPhase = 'visa';
-
-    const country = userProfile.targetCountry || 'selected country';
-    const gap = userProfile.studyGap || 'No Gap';
-    const funding = userProfile.fundingPlan || 'funding plan';
-
-    let message = `📄 **Visa Requirements for ${country}**\n\n`;
-    message += `Key documents and requirements:\n\n`;
-    
-    message += `📋 **Essential Documents:**\n`;
-    message += `1. Valid passport (6+ months validity)\n`;
-    message += `2. University offer letter (unconditional)\n`;
-    message += `3. Proof of financial capability\n`;
-    message += `4. English proficiency test results\n`;
-    message += `5. Academic transcripts & certificates\n`;
-    message += `6. Genuine Temporary Entrant (GTE) statement\n`;
-    message += `7. Health insurance proof\n`;
-    message += `8. Police clearance certificate\n\n`;
-    
-    if (gap !== 'No Gap') {
-        message += `⚠️ **Important for ${gap} study gap:**\n`;
-        message += `• Provide detailed gap explanation\n`;
-        message += `• Show relevant activities/certifications\n`;
-        message += `• Connect gap to future study plans\n\n`;
-    }
-    
-    message += `⏱️ **Processing Times:**\n`;
-    message += `• ${getVisaProcessingTime(country)}\n\n`;
-    
-    message += `✅ **Success Tips:**\n`;
-    message += `• Apply 3-4 months before course start\n`;
-    message += `• Ensure all documents are consistent\n`;
-    message += `• Prepare for potential interview\n`;
-
-    addMessage('bot', message);
-
-    showActionButtons([
-        { text: '🗣️ English Test Help', action: () => showEnglishGuidance(), icon: 'fas fa-language' },
-        { text: '💰 Financial Proof', action: () => showFinancialRequirements(), icon: 'fas fa-file-invoice-dollar' },
-        { text: '🤝 Counselor Support', action: () => showCounselorConnection(), icon: 'fas fa-headset' },
-        { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-    ]);
+    return opportunities;
 }
 
 function getVisaProcessingTime(country) {
     const times = {
-        'Australia': '4-12 weeks (standard), 2-4 weeks (priority)',
-        'Canada': '8-16 weeks (study permit), 4-8 weeks (SDS)',
-        'UK': '3-6 weeks (standard), 5 days (priority)',
-        'USA': '3-5 months (F-1 visa), includes interview',
+        'Australia': '4-12 weeks (standard processing)',
+        'Canada': '8-16 weeks (Study Permit), 4-8 weeks (SDS stream)',
+        'UK': '3-6 weeks (standard), 5 working days (priority)',
+        'USA': '3-5 months (includes interview scheduling)',
         'New Zealand': '4-8 weeks (standard processing)'
     };
+    
     return times[country] || 'Varies - check official immigration website';
 }
 
-function showEnglishGuidance() {
-    updateStatus('English Test Help');
-    currentPhase = 'english_guidance';
-
-    const status = userProfile.englishTestStatus || 'Not Started';
-    const level = userProfile.intendedLevel || 'your study level';
-
-    let message = `🗣️ **English Test Guidance**\n\n`;
-    
-    // Status-specific advice
-    message += getEnglishStatusAdvice(status);
-    
-    message += `\n📊 **Score Requirements for ${level}:**\n`;
-    message += getEnglishScoreRequirements(level);
-    
-    message += `\n📅 **Test Planning:**\n`;
-    message += `• Test preparation: 2-4 months\n`;
-    message += `• Booking: 4-6 weeks in advance\n`;
-    message += `• Results: 2-4 weeks after test\n`;
-    message += `• Validity: 2 years for most tests\n\n`;
-    
-    message += `💡 **Preparation Tips:**\n`;
-    message += `• Take practice tests regularly\n`;
-    message += `• Focus on weakest sections\n`;
-    message += `• Consider coaching if needed\n`;
-
-    addMessage('bot', message);
-
-    showActionButtons([
-        { text: '📅 Timeline Planning', action: () => showIntakeTimelines(), icon: 'fas fa-calendar' },
-        { text: '🎓 University Requirements', action: () => showScholarships(), icon: 'fas fa-university' },
-        { text: '📚 Study Resources', action: () => showStudyResources(), icon: 'fas fa-book' },
-        { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-    ]);
-}
-
-function getEnglishStatusAdvice(status) {
+function getEnglishStatusMessage(status) {
     switch(status) {
         case 'Completed':
-            return `✅ **Great! You've completed your English test.**\n\nNext steps:\n• Ensure scores meet university requirements\n• Check if any universities require additional tests\n• Keep test results valid for visa application\n`;
+            return 'Great! You have completed your English test. Make sure your scores meet the requirements of your target universities.';
         case 'Booked':
-            return `📅 **Good planning! Test is booked/planned.**\n\nImportant:\n• Stick to your preparation schedule\n• Take mock tests to gauge readiness\n• Have backup test dates if needed\n`;
+            return 'You have booked your test. Stick to your preparation schedule and consider taking practice tests.';
         default:
-            return `⏰ **Start your English test preparation now!**\n\nWhy it's urgent:\n• Test dates fill up quickly\n• You might need multiple attempts\n• Scores affect university options\n`;
+            return 'You need to start English test preparation immediately. Most students require 2-4 months of preparation.';
     }
 }
 
-function getEnglishScoreRequirements(level) {
-    const requirements = {
-        'Diploma': 'IELTS 5.5-6.0 / PTE 46-50 / TOEFL 60-78',
-        'Bachelor\'s': 'IELTS 6.0-6.5 / PTE 50-58 / TOEFL 78-90',
-        'Master\'s': 'IELTS 6.5-7.0 / PTE 58-65 / TOEFL 90-100',
-        'PhD': 'IELTS 7.0-7.5 / PTE 65-73 / TOEFL 100-110'
-    };
-    return requirements[level] || 'IELTS 6.0-6.5 / PTE 50-58 / TOEFL 78-90';
+function getEnglishActionItems(status) {
+    switch(status) {
+        case 'Completed':
+            return `
+                <li>Check if your scores meet university requirements</li>
+                <li>Consider retaking if scores are borderline</li>
+                <li>Ensure test validity covers application and visa periods</li>
+                <li>Keep original test report safe</li>
+            `;
+        case 'Booked':
+            return `
+                <li>Follow a structured study plan</li>
+                <li>Take regular practice tests</li>
+                <li>Focus on weakest sections</li>
+                <li>Consider professional coaching if needed</li>
+            `;
+        default:
+            return `
+                <li>Take a diagnostic test to assess current level</li>
+                <li>Create a 3-4 month study plan</li>
+                <li>Book test dates for 2-3 months from now</li>
+                <li>Consider group classes or online courses</li>
+            `;
+    }
 }
 
-function showIntakeTimelines() {
-    updateStatus('Timeline Planning');
-    currentPhase = 'timeline';
-
-    const country = userProfile.targetCountry || 'selected country';
-    const englishStatus = userProfile.englishTestStatus || 'Not Started';
-
-    let message = `📅 **Intake Timeline for ${country}**\n\n`;
+function getIELTSRequirement(level) {
+    const requirements = {
+        'Diploma': 'Overall 5.5 - 6.0 (no band less than 5.0)',
+        'Bachelor\'s': 'Overall 6.0 - 6.5 (no band less than 5.5)',
+        'Master\'s': 'Overall 6.5 - 7.0 (no band less than 6.0)',
+        'PhD': 'Overall 7.0 - 7.5 (no band less than 6.5)'
+    };
     
-    message += `🎯 **Main Intake Periods:**\n`;
-    message += getIntakePeriods(country);
-    
-    message += `\n⏰ **Recommended Timeline (for next available intake):**\n`;
-    message += getRecommendedTimeline(englishStatus);
-    
-    message += `\n⚠️ **Critical Deadlines:**\n`;
-    message += `• University applications: 4-6 months before intake\n`;
-    message += `• Scholarship applications: 6-8 months before\n`;
-    message += `• Visa application: 3-4 months before\n`;
-    message += `• Travel arrangements: 1-2 months before\n`;
+    return requirements[level] || 'Overall 6.0 - 6.5';
+}
 
-    addMessage('bot', message);
+function getPTERequirement(level) {
+    const requirements = {
+        'Diploma': '46 - 50 overall',
+        'Bachelor\'s': '50 - 58 overall',
+        'Master\'s': '58 - 65 overall',
+        'PhD': '65 - 73 overall'
+    };
+    
+    return requirements[level] || '50 - 58 overall';
+}
 
-    showActionButtons([
-        { text: '🤝 Get Expert Help', action: () => showCounselorConnection(), icon: 'fas fa-headset' },
-        { text: '🗣️ English Test Plan', action: () => showEnglishGuidance(), icon: 'fas fa-language' },
-        { text: '📋 Checklist', action: () => showChecklist(), icon: 'fas fa-tasks' },
-        { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-    ]);
+function getTOEFLRequirement(level) {
+    const requirements = {
+        'Diploma': '60 - 78 iBT',
+        'Bachelor\'s': '78 - 90 iBT',
+        'Master\'s': '90 - 100 iBT',
+        'PhD': '100 - 110 iBT'
+    };
+    
+    return requirements[level] || '78 - 90 iBT';
+}
+
+function getDuolingoRequirement(level) {
+    const requirements = {
+        'Diploma': '85 - 95',
+        'Bachelor\'s': '95 - 105',
+        'Master\'s': '105 - 115',
+        'PhD': '115 - 125'
+    };
+    
+    return requirements[level] || '95 - 105';
 }
 
 function getIntakePeriods(country) {
     const intakes = {
-        'Australia': '• February (Main)\n• July (Mid-year)\n• November (Limited)',
-        'Canada': '• September (Fall - Main)\n• January (Winter)\n• May (Spring/Summer)',
-        'UK': '• September/October (Main)\n• January (Winter - Limited)',
-        'USA': '• August/September (Fall)\n• January (Spring - Limited)',
-        'New Zealand': '• February (Main)\n• July (Mid-year)'
+        'Australia': 'February (Main), July (Mid-year), November (Limited)',
+        'Canada': 'September (Fall - Main), January (Winter), May (Spring/Summer)',
+        'UK': 'September/October (Main), January (Winter - Limited)',
+        'USA': 'August/September (Fall), January (Spring - Limited)',
+        'New Zealand': 'February (Main), July (Mid-year)'
     };
+    
     return intakes[country] || 'Varies - check specific university websites';
 }
 
-function getRecommendedTimeline(englishStatus) {
-    const baseTimeline = `• Now: Research & shortlist universities\n• +1 month: Contact universities & professors\n• +2 months: Prepare application documents\n• +3 months: Submit applications\n• +4 months: Receive offers & decide\n• +5 months: Apply for visa\n• +6 months: Make travel arrangements\n• +7 months: Depart for studies\n`;
+function getTimelineSteps(englishStatus) {
+    let steps = `
+        <li><strong>Now:</strong> Research universities and programs</li>
+        <li><strong>+1 month:</strong> Contact professors (for research programs)</li>
+        <li><strong>+2 months:</strong> Prepare application documents</li>
+        <li><strong>+3 months:</strong> Submit applications</li>
+        <li><strong>+4 months:</strong> Receive offers and decide</li>
+        <li><strong>+5 months:</strong> Apply for visa</li>
+        <li><strong>+6 months:</strong> Make travel arrangements</li>
+        <li><strong>+7 months:</strong> Depart for studies</li>
+    `;
     
     if (englishStatus === 'Not Started') {
-        return `• **Immediate:** Start English test prep\n• +2 months: Take English test\n${baseTimeline}`;
+        steps = `
+            <li><strong>Immediate:</strong> Start English test preparation</li>
+            <li><strong>+2 months:</strong> Take English test</li>
+            ${steps}
+        `;
     } else if (englishStatus === 'Booked') {
-        return `• **Ongoing:** English test preparation\n• +1 month: Take English test\n${baseTimeline}`;
-    } else {
-        return baseTimeline;
+        steps = `
+            <li><strong>Ongoing:</strong> English test preparation</li>
+            <li><strong>+1 month:</strong> Take English test</li>
+            ${steps}
+        `;
     }
+    
+    return steps;
 }
 
-function showCountryComparison() {
-    updateStatus('Country Comparison');
-    
-    addMessage('bot', `🌍 **Country Comparison Overview**\n\nHere's a quick comparison of popular study destinations:\n\n` +
-        `🇦🇺 **Australia**\n• Tuition: AUD $20,000-$45,000/year\n• Living: AUD $20,000-$25,000/year\n• Work: 40 hrs/fortnight during studies\n• PR: Possible after graduation\n\n` +
-        `🇨🇦 **Canada**\n• Tuition: CAD $15,000-$35,000/year\n• Living: CAD $15,000-$20,000/year\n• Work: 20 hrs/week during studies\n• PR: PGWP pathway available\n\n` +
-        `🇬🇧 **UK**\n• Tuition: £10,000-£30,000/year\n• Living: £12,000-£15,000/year\n• Work: 20 hrs/week during term\n• PSW: 2 years after graduation\n\n` +
-        `🇺🇸 **USA**\n• Tuition: $20,000-$50,000/year\n• Living: $15,000-$25,000/year\n• Work: On-campus only initially\n• OPT: 1-3 years after graduation\n`);
-    
-    showActionButtons([
-        { text: '🇦🇺 Australia Details', action: () => showCountryDetails('Australia'), icon: 'fas fa-info-circle' },
-        { text: '🇨🇦 Canada Details', action: () => showCountryDetails('Canada'), icon: 'fas fa-info-circle' },
-        { text: '🇬🇧 UK Details', action: () => showCountryDetails('UK'), icon: 'fas fa-info-circle' },
-        { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-    ]);
-}
-
-function showCountryDetails(country) {
-    const details = {
-        'Australia': `🇦🇺 **Study in Australia Details**\n\n` +
-            `🎓 **Education Quality:**\n• World-class universities\n• Practical, industry-focused programs\n• Strong research opportunities\n\n` +
-            `💰 **Costs:**\n• Tuition: AUD $20,000-$45,000/year\n• Living: AUD $20,000-$25,000/year\n• Health Insurance: AUD $3,000/year\n\n` +
-            `💼 **Work Rights:**\n• 40 hours per fortnight during studies\n• Unlimited hours during holidays\n• Post-study work: 2-4 years\n\n` +
-            `🛂 **Visa Process:**\n• Genuine Temporary Entrant requirement\n• Financial proof required\n• Health checks mandatory`,
-        
-        'Canada': `🇨🇦 **Study in Canada Details**\n\n` +
-            `🎓 **Education Quality:**\n• Affordable quality education\n• Co-op programs available\n• Strong industry connections\n\n` +
-            `💰 **Costs:**\n• Tuition: CAD $15,000-$35,000/year\n• Living: CAD $15,000-$20,000/year\n• Health Insurance: CAD $600-$1,200/year\n\n` +
-            `💼 **Work Rights:**\n• 20 hours/week during studies\n• Full-time during breaks\n• PGWP: Up to 3 years after graduation\n\n` +
-            `🛂 **Visa Process:**\n• Study Permit required\n• Proof of funds mandatory\n• May require biometrics`,
-        
-        'UK': `🇬🇧 **Study in UK Details**\n\n` +
-            `🎓 **Education Quality:**\n• Historic universities\n• 1-year Master's programs\n• Strong research reputation\n\n` +
-            `💰 **Costs:**\n• Tuition: £10,000-£30,000/year\n• Living: £12,000-£15,000/year\n• Health Surcharge: £470/year\n\n` +
-            `💼 **Work Rights:**\n• 20 hours/week during term\n• Full-time during holidays\n• Graduate Route: 2 years work\n\n` +
-            `🛂 **Visa Process:**\n• CAS required from university\n• Financial evidence needed\n• Healthcare surcharge payable`
+function getTopicName(topicId) {
+    const names = {
+        'financial': 'Financial Requirements',
+        'scholarships': 'Scholarships',
+        'visa': 'Visa Expectations',
+        'english': 'English Test Help',
+        'timeline': 'Timeline Planning',
+        'counselor': 'Counselor Connection'
     };
     
-    addMessage('bot', details[country] || 'Country details not available.');
-    
-    showActionButtons([
-        { text: '🏠 Back to Comparison', action: () => showCountryComparison(), icon: 'fas fa-arrow-left' },
-        { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-    ]);
-}
-
-function showStudyResources() {
-    addMessage('bot', `📚 **Study Resources & Preparation**\n\n` +
-        `🌐 **Official Test Websites:**\n• IELTS: ielts.org\n• PTE: pearsonpte.com\n• TOEFL: ets.org/toefl\n\n` +
-        `📖 **Preparation Platforms:**\n• British Council (free resources)\n• IDP Education (practice tests)\n• Magoosh (test preparation)\n\n` +
-        `📱 **Mobile Apps:**\n• IELTS Prep App\n• PTE Practice Test\n• TOEFL Go! Official App\n\n` +
-        `💡 **Study Tips:**\n• Practice daily (30-60 minutes)\n• Focus on weak areas\n• Take timed practice tests\n• Join study groups`);
-    
-    showActionButtons([
-        { text: '🗣️ Back to English Guidance', action: () => showEnglishGuidance(), icon: 'fas fa-arrow-left' },
-        { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-    ]);
-}
-
-function showChecklist() {
-    addMessage('bot', `📋 **Study Abroad Preparation Checklist**\n\n` +
-        `✅ **Phase 1: Research (3-6 months before)**\n• Research countries & universities\n• Check admission requirements\n• Explore scholarship options\n\n` +
-        `✅ **Phase 2: Preparation (2-4 months before)**\n• Take English proficiency test\n• Prepare academic documents\n• Contact professors (if needed)\n\n` +
-        `✅ **Phase 3: Application (1-3 months before)**\n• Submit university applications\n• Apply for scholarships\n• Prepare financial documents\n\n` +
-        `✅ **Phase 4: Visa (2-3 months before)**\n• Accept university offer\n• Pay tuition deposit\n• Apply for student visa\n• Arrange accommodation\n\n` +
-        `✅ **Phase 5: Pre-departure (1 month before)**\n• Book flights\n• Arrange insurance\n• Pack essentials\n• Attend pre-departure briefing`);
-    
-    showActionButtons([
-        { text: '📅 Back to Timeline', action: () => showIntakeTimelines(), icon: 'fas fa-arrow-left' },
-        { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-    ]);
-}
-
-function showCounselorConnection() {
-    updateStatus('Counselor Connection');
-    currentPhase = 'counselor';
-
-    addMessage('bot', `🤝 **Free Expert Consultation Available!**\n\n` +
-        `Our certified study abroad counselors can help you with:\n\n` +
-        `✅ **University Selection:**\n• Best-fit universities based on your profile\n• Course & program recommendations\n• Application strategy\n\n` +
-        `✅ **Application Support:**\n• SOP & LOR guidance\n• Document review & preparation\n• Application form assistance\n\n` +
-        `✅ **Visa Assistance:**\n• Document checklist\n• Financial planning guidance\n• Mock visa interviews\n\n` +
-        `✅ **Post-Admission:**\n• Accommodation assistance\n• Pre-departure briefing\n• Airport pickup arrangements\n\n` +
-        `✨ **All services are completely free!**\n\n` +
-        `Choose how you'd like to connect:`);
-
-    showActionButtons([
-        { text: '📱 WhatsApp Consultation', action: () => connectViaWhatsApp(), type: 'primary', icon: 'fab fa-whatsapp' },
-        { text: '📞 Schedule Video Call', action: () => scheduleVideoCall(), icon: 'fas fa-video' },
-        { text: '📧 Email Consultation', action: () => emailConsultation(), icon: 'fas fa-envelope' },
-        { text: '📍 Visit Office', action: () => visitOffice(), icon: 'fas fa-map-marker-alt' },
-        { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-    ]);
-}
-
-function connectViaWhatsApp() {
-    const phone = '+12345678900';
-    const profileSummary = `Country: ${userProfile.targetCountry || 'Not selected'}\nLevel: ${userProfile.intendedLevel || 'Not selected'}\nAcademic: ${userProfile.academicPerformance || 'Not selected'}\nGap: ${userProfile.studyGap || 'Not selected'}\nEnglish: ${userProfile.englishTestStatus || 'Not selected'}\nFunding: ${userProfile.fundingPlan || 'Not selected'}`;
-    
-    const message = `Hello! I need study abroad consultation. Here's my profile:\n\n${profileSummary}\n\nPlease connect me with a counselor.`;
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    
-    addMessage('user', 'Requested WhatsApp consultation');
-    playSound('click');
-    
-    setTimeout(() => {
-        addMessage('bot', `✅ **Connecting you with a counselor...**\n\n` +
-            `• A counselor will contact you within 15 minutes\n` +
-            `• Please keep your phone nearby\n` +
-            `• Have your academic documents ready\n\n` +
-            `In the meantime, you can continue exploring other topics.`);
-        
-        // Open WhatsApp in new tab
-        window.open(url, '_blank');
-        
-        setTimeout(() => showTopicSelection(), 2000);
-    }, 800);
-}
-
-function scheduleVideoCall() {
-    addMessage('user', 'Requested video call booking');
-    playSound('click');
-    
-    setTimeout(() => {
-        addMessage('bot', `📅 **Video Call Booking**\n\n` +
-            `Our booking system is opening in a new window.\n\n` +
-            `You can choose:\n` +
-            `• Date & time that works for you\n` +
-            `• Counselor specialization\n` +
-            `• Consultation duration (30/60 mins)\n\n` +
-            `All video consultations are free!`);
-        
-        // Simulate booking system
-        setTimeout(() => {
-            window.open('#', '_blank');
-            showTopicSelection();
-        }, 1500);
-    }, 500);
-}
-
-function emailConsultation() {
-    const email = 'counselor@studyabroad.com';
-    const subject = `Study Abroad Consultation - ${userProfile.targetCountry || 'General'} Inquiry`;
-    const body = `Dear Counselor,\n\nI am interested in studying abroad and would like to schedule a consultation.\n\nMy Profile:\n- Target Country: ${userProfile.targetCountry || 'Not decided'}\n- Study Level: ${userProfile.intendedLevel || 'Not decided'}\n- Academic Performance: ${userProfile.academicPerformance || 'Not specified'}\n- Study Gap: ${userProfile.studyGap || 'None'}\n- English Test Status: ${userProfile.englishTestStatus || 'Not started'}\n- Funding Plan: ${userProfile.fundingPlan || 'Exploring options'}\n\nPlease contact me to schedule a consultation.\n\nBest regards,\n[Your Name]`;
-    
-    addMessage('user', 'Requested email consultation');
-    playSound('click');
-    
-    setTimeout(() => {
-        addMessage('bot', `📧 **Email Consultation**\n\n` +
-            `You can email us at: **${email}**\n\n` +
-            `Suggested subject: "${subject}"\n\n` +
-            `A counselor will respond within 24 hours.\n\n` +
-            `Would you like to copy the email template to your clipboard?`);
-        
-        showActionButtons([
-            { text: '📋 Copy Email Template', action: () => copyToClipboard(body), type: 'primary', icon: 'fas fa-copy' },
-            { text: '📤 Open Email Client', action: () => window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`), icon: 'fas fa-envelope' },
-            { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-        ]);
-    }, 500);
-}
-
-function visitOffice() {
-    addMessage('user', 'Requested office visit information');
-    playSound('click');
-    
-    setTimeout(() => {
-        addMessage('bot', `📍 **Office Visit Information**\n\n` +
-            `**Main Office:**\n` +
-            `Study Abroad Consultants Ltd.\n` +
-            `123 Education Street\n` +
-            `Knowledge City, EC1A 1BB\n` +
-            `United Kingdom\n\n` +
-            `**Contact:**\n` +
-            `📞 +44 20 7123 4567\n` +
-            `📧 office@studyabroad.com\n` +
-            `🌐 www.studyabroad-consultants.com\n\n` +
-            `**Office Hours:**\n` +
-            `Monday-Friday: 9:00 AM - 6:00 PM\n` +
-            `Saturday: 10:00 AM - 4:00 PM\n` +
-            `Sunday: Closed\n\n` +
-            `**Before Visiting:**\n` +
-            `• Please book an appointment\n` +
-            `• Bring your academic documents\n` +
-            `• Allow 1-2 hours for consultation`);
-        
-        showActionButtons([
-            { text: '📅 Book Appointment', action: () => scheduleVideoCall(), icon: 'fas fa-calendar-check' },
-            { text: '🗺️ Get Directions', action: () => window.open('https://maps.google.com'), icon: 'fas fa-directions' },
-            { text: '🏠 Back to Menu', action: () => showTopicSelection(), icon: 'fas fa-home' }
-        ]);
-    }, 500);
+    return names[topicId] || 'Topic';
 }
 
 // Utility Functions
 function saveAnswer(field, value, nextFunction) {
     userProfile[field] = value;
     addMessage('user', value);
-    playSound('notification');
-    updateCompletion();
     
     setTimeout(nextFunction, 400);
 }
@@ -808,42 +866,41 @@ function addMessage(sender, text) {
 
     chatArea.appendChild(messageDiv);
     chatArea.scrollTop = chatArea.scrollHeight;
-    
-    // Save to history
-    conversationHistory.push({
-        sender,
-        text,
-        time: new Date().toISOString(),
-        phase: currentPhase
-    });
-    
-    updateMessageCount();
 }
 
 function formatMessage(text) {
-    // Convert markdown-like formatting
-    return text
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/\n/g, '<br>')
-        .replace(/✅/g, '<span style="color: #4CAF50;">✅</span>')
-        .replace(/⚠️/g, '<span style="color: #FF9800;">⚠️</span>')
-        .replace(/💡/g, '<span style="color: #2196F3;">💡</span>')
-        .replace(/📅/g, '<span style="color: #3F51B5;">📅</span>')
-        .replace(/💰/g, '<span style="color: #4CAF50;">💰</span>');
+    return text.replace(/\n/g, '<br>');
 }
 
-function showActionButtons(buttons) {
-    actionButtons.innerHTML = '';
+function showTopicButtons(buttons) {
+    // Clear existing buttons
+    topicButtons.innerHTML = '';
+    
     buttons.forEach(btn => {
         const button = document.createElement('button');
-        button.className = `action-btn ${btn.type || ''}`;
+        button.className = `topic-btn ${btn.primary ? 'active' : ''}`;
         button.innerHTML = `
-            ${btn.icon ? `<i class="${btn.icon} btn-icon"></i>` : ''}
-            <span class="btn-text">${btn.text}</span>
+            <span class="topic-icon">${btn.icon}</span>
+            <span class="topic-text">${btn.text}</span>
         `;
         button.onclick = btn.action;
-        actionButtons.appendChild(button);
+        topicButtons.appendChild(button);
+    });
+}
+
+function showTopicNavButtons(buttons) {
+    topicButtons.innerHTML = '';
+    
+    buttons.forEach(btn => {
+        const button = document.createElement('button');
+        button.className = 'topic-btn';
+        button.dataset.topic = btn.id;
+        button.innerHTML = `
+            <span class="topic-icon">${btn.icon}</span>
+            <span class="topic-text">${btn.text}</span>
+        `;
+        button.onclick = btn.action;
+        topicButtons.appendChild(button);
     });
 }
 
@@ -856,12 +913,55 @@ function updateStatus(text) {
     statusText.textContent = text;
 }
 
-function playSound(type = 'notification') {
-    if (muteEnabled) return;
+// Navigation Functions
+function backToTopics() {
+    topicContent.classList.remove('active');
+    topicNavBar.classList.remove('collapsed');
+    topicToggleIcon.className = 'fas fa-chevron-down';
+    isTopicBarCollapsed = false;
+    currentTopic = null;
+    updateStatus('Choose a topic');
+}
+
+function toggleTopicBar() {
+    if (currentTopic) {
+        // If viewing a topic, go back to topics
+        backToTopics();
+    } else {
+        // Toggle collapse state
+        isTopicBarCollapsed = !isTopicBarCollapsed;
+        topicNavBar.classList.toggle('collapsed');
+        topicToggleIcon.className = isTopicBarCollapsed ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+    }
+}
+
+// Counselor Functions
+function connectViaWhatsApp() {
+    const phone = '+12345678900';
+    const profileSummary = `Country: ${userProfile.targetCountry || 'Not selected'}\nLevel: ${userProfile.intendedLevel || 'Not selected'}\nAcademic: ${userProfile.academicPerformance || 'Not selected'}\nGap: ${userProfile.studyGap || 'Not selected'}\nEnglish: ${userProfile.englishTestStatus || 'Not selected'}\nFunding: ${userProfile.fundingPlan || 'Not selected'}`;
     
-    const sound = type === 'click' ? clickSound : notificationSound;
-    sound.currentTime = 0;
-    sound.play().catch(e => console.log('Sound error:', e));
+    const message = `Hello! I need study abroad consultation. Here's my profile:\n\n${profileSummary}\n\nPlease connect me with a counselor.`;
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    
+    window.open(url, '_blank');
+    
+    addMessage('user', 'Requested WhatsApp consultation');
+    setTimeout(() => {
+        addMessage('bot', '✅ **Connecting you with a counselor...**\n\nA counselor will contact you within 15 minutes.');
+    }, 500);
+}
+
+function scheduleVideoCall() {
+    addMessage('user', 'Requested video call booking');
+    
+    setTimeout(() => {
+        addMessage('bot', '📅 **Video Call Booking**\n\nOur booking system is opening in a new window. You can choose a convenient time for your free consultation.');
+        
+        // Simulate opening booking system
+        setTimeout(() => {
+            window.open('#', '_blank');
+        }, 1000);
+    }, 500);
 }
 
 // Modal Functions
@@ -870,16 +970,8 @@ function showProfileSummary() {
     profileModal.style.display = 'flex';
 }
 
-function showHelp() {
-    helpModal.style.display = 'flex';
-}
-
 function closeModal() {
     profileModal.style.display = 'none';
-}
-
-function closeHelp() {
-    helpModal.style.display = 'none';
 }
 
 function updateProfileDisplay() {
@@ -899,134 +991,12 @@ function updateProfileDisplay() {
             valueElement.textContent = field.value || 'Not selected';
         }
     });
-    
-    updateCompletion();
 }
 
 function editProfile() {
     closeModal();
     userProfile.completed = false;
     startProfileSetup();
-}
-
-function shareProfile() {
-    const profileText = `My Study Abroad Profile:\n\n` +
-        `🌍 Country: ${userProfile.targetCountry || 'Not selected'}\n` +
-        `🎓 Level: ${userProfile.intendedLevel || 'Not selected'}\n` +
-        `📊 Academic: ${userProfile.academicPerformance || 'Not selected'}\n` +
-        `⏳ Gap: ${userProfile.studyGap || 'Not selected'}\n` +
-        `🗣️ English: ${userProfile.englishTestStatus || 'Not selected'}\n` +
-        `💰 Funding: ${userProfile.fundingPlan || 'Not selected'}\n\n` +
-        `Generated by Study Abroad Chat Assistant`;
-    
-    if (navigator.share) {
-        navigator.share({
-            title: 'My Study Abroad Profile',
-            text: profileText,
-            url: window.location.href
-        });
-    } else {
-        copyToClipboard(profileText);
-        alert('Profile copied to clipboard!');
-    }
-}
-
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(() => {
-        addMessage('bot', '✅ Copied to clipboard!');
-    }).catch(err => {
-        console.error('Failed to copy:', err);
-    });
-}
-
-// New Features
-function toggleMute() {
-    muteEnabled = !muteEnabled;
-    const icon = muteBtn.querySelector('i');
-    icon.className = muteEnabled ? 'fas fa-volume-mute' : 'fas fa-volume-up';
-    addMessage('bot', muteEnabled ? '🔇 Sounds muted' : '🔊 Sounds enabled');
-}
-
-function exportChat() {
-    const chatData = {
-        profile: userProfile,
-        conversation: conversationHistory,
-        timestamp: new Date().toISOString(),
-        sessionDuration: sessionTimerElement.textContent
-    };
-    
-    const dataStr = JSON.stringify(chatData, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
-    const exportFileDefaultName = `study-abroad-chat-${new Date().toISOString().slice(0,10)}.json`;
-    
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-    
-    addMessage('bot', '📥 Chat history exported successfully!');
-}
-
-function scrollToTop() {
-    chatArea.scrollTop = 0;
-    playSound('click');
-}
-
-function scrollToBottom() {
-    chatArea.scrollTop = chatArea.scrollHeight;
-    playSound('click');
-}
-
-function clearMessages() {
-    if (confirm('Clear all messages? This cannot be undone.')) {
-        chatArea.innerHTML = '';
-        addMessage('bot', '🗑️ Messages cleared. Conversation continues...');
-    }
-}
-
-function toggleQuickNav() {
-    quickNavModal.style.display = 'flex';
-}
-
-function closeQuickNav() {
-    quickNavModal.style.display = 'none';
-}
-
-function jumpToPhase(phase) {
-    closeQuickNav();
-    
-    switch(phase) {
-        case 'welcome':
-            resetChat();
-            break;
-        case 'country':
-            startProfileSetup();
-            break;
-        case 'level':
-            if (!userProfile.targetCountry) {
-                addMessage('bot', 'Please complete country selection first.');
-                startProfileSetup();
-            } else {
-                showLevelSelection();
-            }
-            break;
-        case 'topics':
-            showTopicSelection();
-            break;
-        case 'financial':
-            showFinancialRequirements();
-            break;
-        case 'scholarships':
-            showScholarships();
-            break;
-        case 'visa':
-            showVisaExpectations();
-            break;
-        case 'counselor':
-            showCounselorConnection();
-            break;
-    }
 }
 
 function resetChat() {
@@ -1039,26 +1009,15 @@ function resetChat() {
             englishTestStatus: '',
             fundingPlan: '',
             completed: false,
-            lastUpdated: null,
-            conversationId: generateConversationId()
+            lastUpdated: null
         };
         
         localStorage.removeItem('studyAbroadProfile');
         chatArea.innerHTML = '';
-        actionButtons.innerHTML = '';
-        conversationHistory = [];
-        messageCount = 0;
-        messageCountElement.textContent = 'Messages: 0';
-        
-        if (sessionTimer) {
-            clearInterval(sessionTimer);
-            sessionTimer = null;
-        }
-        
-        sessionStartTime = Date.now();
-        sessionTimerElement.textContent = '00:00';
-        startSessionTimer();
-        
+        topicButtons.innerHTML = '';
+        topicContent.innerHTML = '';
+        topicContent.classList.remove('active');
+        topicNavBar.classList.remove('collapsed');
         showWelcomePhase();
     }
 }
